@@ -7,13 +7,27 @@ type UiState = "idle" | "loading" | "success" | "error";
 export default function App() {
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
-  void categories;
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleCheck() {
-    // TODO(Issue 4): set loading, call checkSystem(), then either
-    //   - success: store categories and show Online + the list, or
-    //   - error: show Offline + a useful message.
     setState("loading");
+    setCategories([]);
+    setErrorMessage("");
+
+    try {
+      const result = await checkSystem();
+
+      setCategories(result.categories);
+      setState("success");
+    } catch (error) {
+      setState("error");
+
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Unable to connect to TokTickIT API");
+      }
+    }
   }
 
   return (
@@ -22,11 +36,49 @@ export default function App() {
         TokTickIT <span className="text-success">IT Service Desk</span>
       </h1>
 
-      <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
+      <button
+        className="btn btn-success"
+        onClick={handleCheck}
+        disabled={state === "loading"}
+      >
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
 
-      {/* TODO(Issue 4): render loading / success (Online + categories) / error (Offline) states. */}
+      {state === "loading" && (
+        <div className="mt-4">
+          <p>Loading...</p>
+        </div>
+      )}
+
+      {state === "success" && (
+        <div className="mt-4">
+          <p>
+            <strong>System Status:</strong>{" "}
+            <span className="text-success">Online</span>
+          </p>
+
+          <h2 className="h5 mt-4">Supported Request Categories</h2>
+
+          <ol>
+            {categories.map((category) => (
+              <li key={category.id}>{category.name}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {state === "error" && (
+        <div className="mt-4">
+          <p>
+            <strong>System Status:</strong>{" "}
+            <span className="text-danger">Offline</span>
+          </p>
+
+          <div className="alert alert-danger">
+            {errorMessage || "Unable to connect to TokTickIT API"}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
