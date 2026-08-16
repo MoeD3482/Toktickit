@@ -1,5 +1,8 @@
 import { getPrisma } from "../src/prisma.js";
 
+// Issue 3 — seed the four supported categories.
+// Running the seed multiple times must NOT create duplicates.
+
 const categories = [
   "Account and Access",
   "Hardware",
@@ -18,7 +21,7 @@ async function main() {
     });
   }
 
-  console.log("Database seeded successfully with IT request categories.");
+  console.log("Categories seeded successfully.");
 }
 
 main()
@@ -29,4 +32,3 @@ main()
   .finally(async () => {
     await getPrisma().$disconnect();
   });
-
