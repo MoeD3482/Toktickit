@@ -2,7 +2,7 @@
 
 **LLM/agent used:** ChatGPT
 
-## Selected key prompts (6–10)
+
 
 | # | Prompt (summarised) | What I did with the result |
 |---|---------------------|----------------------------|
@@ -15,4 +15,4 @@
 
 ## Reflection
 
-My prompts became more effective when I clearly specified one issue at a time, the required technologies, expected behavior, files, and testing requirements. This helped keep each implementation within the scope of the Lab 1 requirements instead of implementing later features too early. I still reviewed and corrected the results when they did not exactly match my repository, particularly during the Git workflow, documentation, database setup, and test verification.
+My prompts became more effective when I clearly specified one issue at a time, the required technologies, expected behavior, files, and testing requirements. This helped keep each implementation within the scope of the Lab 1 requirements instead of implementing later features too early. I still reviewed and corrected the results when they did not exactly match my repository, particularly during the Git workflow, documentation, database setup, and test verification.T
