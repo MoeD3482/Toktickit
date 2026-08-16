@@ -19,14 +19,9 @@ export default function App() {
 
       setCategories(result.categories);
       setState("success");
-    } catch (error) {
+    } catch {
       setState("error");
-
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage("Unable to connect to TokTickIT API");
-      }
+      setErrorMessage("Unable to connect to TokTickIT API");
     }
   }
 
