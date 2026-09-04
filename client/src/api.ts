@@ -39,3 +39,29 @@ export async function checkSystem(): Promise<SystemStatus> {
     categories,
   };
 }
+
+export interface DevelopmentRequester {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
+interface DevelopmentRequesterResponse {
+  data: DevelopmentRequester[];
+}
+
+export async function getDevelopmentRequesters(): Promise<
+  DevelopmentRequester[]
+> {
+  const response = await fetch(
+    `${API_URL}/api/v1/development-requesters`
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to load Development Requesters");
+  }
+
+  const result: DevelopmentRequesterResponse = await response.json();
+
+  return result.data;
+}
