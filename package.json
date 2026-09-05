@@ -1,0 +1,29 @@
+{
+  "name": "toktickit",
+  "version": "1.0.0",
+  "description": "TokTickIT is a full-stack IT service desk application for managing Account & Access, Hardware, Software, and Network service requests.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MoeD3482/Toktickit.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MoeD3482/Toktickit/issues"
+  },
+  "homepage": "https://github.com/MoeD3482/Toktickit#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

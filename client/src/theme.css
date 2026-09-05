@@ -1,0 +1,549 @@
+:root {
+  --zen-primary: #006b3c;
+  --zen-secondary: #0b7a46;
+  --zen-pale: #eaf6ef;
+  --zen-background: #f5f7f6;
+
+  --zen-surface: #ffffff;
+  --zen-text: #17372a;
+  --zen-muted: #62746c;
+
+  --zen-border: #d5e2db;
+  --zen-readonly: #eef4f1;
+
+  --zen-danger: #a61b1b;
+  --zen-warning: #b36b00;
+
+  --zen-radius: 0.8rem;
+  --zen-shadow:
+    0 0.25rem 0.8rem
+    rgba(0, 60, 34, 0.08);
+}
+
+/* ---------- Page ---------- */
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    var(--zen-background);
+  color:
+    var(--zen-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* ---------- Typography ---------- */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color:
+    var(--zen-primary);
+  font-weight: 700;
+}
+
+.text-muted {
+  color:
+    var(--zen-muted) !important;
+}
+
+/* ---------- Cards / surfaces ---------- */
+
+.card {
+  border:
+    1px solid
+    var(--zen-border);
+  border-radius:
+    var(--zen-radius);
+  background:
+    var(--zen-surface);
+  box-shadow:
+    var(--zen-shadow) !important;
+}
+
+.card-body {
+  border-radius:
+    var(--zen-radius);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  border-radius:
+    0.55rem;
+  font-weight: 600;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn-success {
+  --bs-btn-bg:
+    var(--zen-primary);
+  --bs-btn-border-color:
+    var(--zen-primary);
+
+  --bs-btn-hover-bg:
+    var(--zen-secondary);
+  --bs-btn-hover-border-color:
+    var(--zen-secondary);
+
+  --bs-btn-active-bg:
+    var(--zen-secondary);
+  --bs-btn-active-border-color:
+    var(--zen-secondary);
+
+  --bs-btn-disabled-bg:
+    var(--zen-primary);
+  --bs-btn-disabled-border-color:
+    var(--zen-primary);
+}
+
+.btn-outline-success {
+  --bs-btn-color:
+    var(--zen-primary);
+  --bs-btn-border-color:
+    var(--zen-primary);
+
+  --bs-btn-hover-bg:
+    var(--zen-primary);
+  --bs-btn-hover-border-color:
+    var(--zen-primary);
+
+  --bs-btn-active-bg:
+    var(--zen-secondary);
+  --bs-btn-active-border-color:
+    var(--zen-secondary);
+}
+
+.btn-link {
+  color:
+    var(--zen-secondary) !important;
+}
+
+.btn-link:hover {
+  color:
+    var(--zen-primary) !important;
+}
+
+/* ---------- Form controls ---------- */
+
+.form-label {
+  color:
+    var(--zen-text);
+  font-weight: 600;
+  margin-bottom:
+    0.4rem;
+}
+
+.form-control,
+.form-select {
+  border:
+    1px solid
+    #b8c9c0;
+  border-radius:
+    0.55rem;
+  background:
+    #ffffff;
+  color:
+    var(--zen-text);
+  min-height:
+    42px;
+}
+
+textarea.form-control {
+  min-height:
+    auto;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color:
+    var(--zen-secondary);
+  box-shadow:
+    0 0 0 0.2rem
+    rgba(11, 122, 70, 0.18);
+}
+
+.form-control[readonly] {
+  background:
+    var(--zen-readonly);
+  border-color:
+    #ccd9d2;
+  color:
+    #365047;
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  background:
+    #edf1ef;
+  color:
+    #687970;
+}
+
+.form-text {
+  color:
+    var(--zen-muted);
+}
+
+/* ---------- Validation ---------- */
+
+.is-invalid {
+  border-color:
+    var(--zen-danger) !important;
+}
+
+.invalid-feedback {
+  color:
+    var(--zen-danger);
+  font-weight: 500;
+}
+
+/* ---------- Alerts ---------- */
+
+.alert {
+  border-radius:
+    0.7rem;
+  border-width:
+    1px;
+}
+
+.alert-success {
+  background:
+    var(--zen-pale);
+  border-color:
+    #aad7bd;
+  color:
+    #145c36;
+}
+
+.alert-danger {
+  background:
+    #fff1f1;
+  border-color:
+    #e4aaaa;
+  color:
+    var(--zen-danger);
+}
+
+.alert-warning {
+  background:
+    #fff8e8;
+  border-color:
+    #e6c47a;
+  color:
+    #795000;
+}
+
+.alert-light {
+  background:
+    #fafcfb;
+  border-color:
+    var(--zen-border) !important;
+}
+
+/* ---------- Tables ---------- */
+
+.table {
+  --bs-table-bg:
+    transparent;
+  color:
+    var(--zen-text);
+}
+
+.table thead th {
+  background:
+    var(--zen-pale);
+  color:
+    var(--zen-primary);
+  border-bottom:
+    2px solid
+    #b9d7c7;
+  white-space:
+    nowrap;
+}
+
+.table tbody td {
+  vertical-align:
+    middle;
+  border-color:
+    #e1e9e5;
+}
+
+.table tbody tr:hover {
+  background:
+    #f2faf5;
+}
+
+/* ---------- Attachment section ---------- */
+
+.bg-light {
+  background:
+    #f4f8f6 !important;
+}
+
+.border {
+  border-color:
+    var(--zen-border) !important;
+}
+
+.list-group-item {
+  border-color:
+    var(--zen-border);
+  color:
+    var(--zen-text);
+}
+
+.badge {
+  font-weight:
+    600;
+  letter-spacing:
+    0.01em;
+}
+
+/* ---------- Status helpers ---------- */
+
+.text-success {
+  color:
+    var(--zen-secondary) !important;
+}
+
+.border-success {
+  border-color:
+    var(--zen-primary) !important;
+}
+
+/* ---------- Navigation / app identity ---------- */
+
+.zen-app-header {
+  background:
+    linear-gradient(
+      135deg,
+      var(--zen-primary),
+      var(--zen-secondary)
+    );
+  color:
+    #ffffff;
+  border-radius:
+    var(--zen-radius);
+  padding:
+    1.25rem 1.5rem;
+  box-shadow:
+    var(--zen-shadow);
+}
+
+.zen-app-header h1,
+.zen-app-header p,
+.zen-app-header strong {
+  color:
+    #ffffff;
+}
+
+.zen-app-header .btn-success {
+  background:
+    #ffffff;
+  border-color:
+    #ffffff;
+  color:
+    var(--zen-primary);
+}
+
+.zen-app-header .btn-success:hover {
+  background:
+    var(--zen-pale);
+  border-color:
+    var(--zen-pale);
+  color:
+    var(--zen-primary);
+}
+
+.zen-app-header
+  .btn-outline-success {
+  color:
+    #ffffff;
+  border-color:
+    rgba(
+      255,
+      255,
+      255,
+      0.8
+    );
+}
+
+.zen-app-header
+  .btn-outline-success:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.15
+    );
+  border-color:
+    #ffffff;
+  color:
+    #ffffff;
+}
+
+.zen-app-header
+  .btn-outline-secondary {
+  color:
+    #ffffff;
+  border-color:
+    rgba(
+      255,
+      255,
+      255,
+      0.65
+    );
+}
+
+.zen-app-header
+  .btn-outline-secondary:hover {
+  background:
+    #ffffff;
+  border-color:
+    #ffffff;
+  color:
+    var(--zen-primary);
+}
+
+/* ---------- Selection screen ---------- */
+
+.zen-selection-card {
+  border-top:
+    5px solid
+    var(--zen-primary);
+}
+
+.zen-selection-card
+  .card-body {
+  padding:
+    2rem !important;
+}
+
+/* ---------- Ticket page ---------- */
+
+.zen-page-title {
+  color:
+    var(--zen-primary);
+}
+
+.zen-section {
+  background:
+    var(--zen-surface);
+  border:
+    1px solid
+    var(--zen-border);
+  border-radius:
+    var(--zen-radius);
+}
+
+/* ---------- Focus accessibility ---------- */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline:
+    3px solid
+    rgba(
+      11,
+      122,
+      70,
+      0.35
+    );
+  outline-offset:
+    2px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (
+  max-width: 767.98px
+) {
+  body {
+    font-size:
+      0.96rem;
+  }
+
+  .container {
+    padding-left:
+      1rem;
+    padding-right:
+      1rem;
+  }
+
+  .card-body {
+    padding:
+      1.25rem !important;
+  }
+
+  .zen-app-header {
+    padding:
+      1rem;
+  }
+
+  .zen-app-header
+    .d-flex {
+    width:
+      100%;
+  }
+
+  .zen-app-header
+    .btn {
+    flex:
+      1 1 auto;
+  }
+
+  .table-responsive {
+    border:
+      1px solid
+      var(--zen-border);
+    border-radius:
+      0.65rem;
+  }
+
+  .btn {
+    min-height:
+      42px;
+  }
+
+  .list-group-item {
+    overflow-wrap:
+      anywhere;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (
+  prefers-reduced-motion:
+    reduce
+) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior:
+      auto !important;
+    transition:
+      none !important;
+  }
+}

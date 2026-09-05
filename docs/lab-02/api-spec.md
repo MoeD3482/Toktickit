@@ -4,11 +4,11 @@
 
 This document defines the REST API contract for the TokTickIT Lab 2 Requester-facing sprint.
 
-It covers:
+Lab 2 supports:
 
 - Development Requester retrieval
-- Category retrieval
-- Related System retrieval
+- active Category retrieval
+- active Related System retrieval
 - Ticket creation
 - My Tickets retrieval
 - Requester Ticket Detail
@@ -16,8 +16,7 @@ It covers:
 - Attachment metadata retrieval
 - Attachment download
 - Attachment soft removal
-- validation
-- ownership protection
+- validation and ownership protection
 - search, filtering, sorting, and pagination
 - safe error responses
 

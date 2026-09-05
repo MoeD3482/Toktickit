@@ -280,3 +280,88 @@ These commands will be updated if the final implementation requires additional s
 ```bash
 cd server
 npm test
+
+```
+
+### Frontend Tests
+
+```bash
+cd client
+npm test
+```
+
+### End-to-End Tests
+
+From the repository root:
+
+```bash
+npm run test:e2e
+```
+
+---
+
+## 6. Actual Verification Results
+
+### 6.1 Automated Tests
+
+| Test Level | Result |
+|---|---|
+| Server full suite | 8 test files passed, 26 tests passed |
+| Lab 2 server tests | 6 test files passed, 24 tests passed |
+| Client full suite | 7 test files passed, 22 tests passed |
+| Lab 2 client tests | 6 test files passed, 19 tests passed |
+| Playwright E2E | 2 tests passed |
+
+### 6.2 End-to-End Results
+
+- E2E-01: Requester creates a Ticket and opens it from My Tickets — Passed
+- E2E-03: Upload, download, soft-remove, and block removed Attachment download — Passed
+
+### 6.3 Manual API Verification
+
+The following Lab 2 API behavior was manually verified:
+
+- Development Requester retrieval — Passed
+- Category retrieval — Passed
+- Related System retrieval — Passed
+- Ticket creation — Passed
+- Generated Ticket Number — Passed
+- My Tickets list — Passed
+- Search — Passed
+- Priority filtering — Passed
+- Pagination and pagination metadata — Passed
+- Sorting — Passed
+- Ticket Detail retrieval — Passed
+- PDF Attachment upload — Passed
+- Attachment metadata retrieval — Passed
+- Active Attachment download — Passed
+- Attachment soft removal — Passed
+- Removed Attachment download protection — Passed
+- Invalid Ticket validation returns HTTP 422 — Passed
+- Cross-Requester Ticket ownership protection — Passed
+
+Manual verification Ticket: `TKT-2026-00043`
+
+### 6.4 Verification Notes
+
+Attachment upload was manually verified using the test-mode in-memory storage adapter because the local SeaweedFS service was not running.
+
+Soft removal retained the Attachment metadata with `isRemoved = true` and blocked subsequent download with a safe `404` response.
+
+The removal reason was not visible in the Attachment-list response and remains a follow-up verification item.
+
+The following planned tests are not claimed as automated Passed yet:
+
+- Seed idempotency unit test
+- Standalone Ticket Number unit test
+- Standalone Ticket validation unit tests
+- Invalid My Tickets query-parameter test
+- Missing Ticket Detail API test
+- Dedicated Zen Green UI style test
+- Automated desktop/tablet/mobile responsive E2E tests
+- Keyboard accessibility E2E test
+- E2E-02 multi-Requester workflow
+- E2E-04 Ticket failure workflow
+- E2E-05 My Tickets state workflow
+
+Desktop and mobile layouts were manually inspected. Tablet-specific visual verification remains pending.

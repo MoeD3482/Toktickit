@@ -131,9 +131,11 @@ export default function App() {
       className="container py-5"
       style={{ maxWidth: 1200 }}
     >
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+      <div className="zen-app-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 mb-1">TokTickIT</h1>
+          <h1 className="h3 mb-1">
+            TokTickIT
+          </h1>
 
           <p className="mb-0">
             Requester:{" "}
