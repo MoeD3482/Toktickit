@@ -2,6 +2,7 @@ import { useState } from "react";
 import CreateTicket from "./components/CreateTicket.js";
 import MyTickets from "./components/MyTickets.js";
 import RequesterSelection from "./components/RequesterSelection.js";
+import RequesterTicketDetail from "./components/RequesterTicketDetail.js";
 
 import {
   checkSystem,
@@ -18,6 +19,9 @@ export default function App() {
 
   const [activePage, setActivePage] =
     useState<ActivePage>("create");
+
+  const [selectedTicketId, setSelectedTicketId] =
+    useState<string | null>(null);
 
   const [state, setState] = useState<UiState>("idle");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -41,12 +45,10 @@ export default function App() {
 
   function handleChangeRequester() {
     setCurrentRequester(null);
+    setSelectedTicketId(null);
     setActivePage("create");
   }
 
-  // -------------------------------------------------------------------------
-  // Development Requester selection screen
-  // -------------------------------------------------------------------------
   if (!currentRequester) {
     return (
       <>
@@ -54,6 +56,7 @@ export default function App() {
           onSelect={(requester) => {
             setCurrentRequester(requester);
             setActivePage("create");
+            setSelectedTicketId(null);
           }}
         />
 
@@ -123,9 +126,6 @@ export default function App() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Requester application shell
-  // -------------------------------------------------------------------------
   return (
     <div
       className="container py-5"
@@ -151,9 +151,10 @@ export default function App() {
                 ? "btn btn-success"
                 : "btn btn-outline-success"
             }
-            onClick={() =>
-              setActivePage("tickets")
-            }
+            onClick={() => {
+              setActivePage("tickets");
+              setSelectedTicketId(null);
+            }}
           >
             My Tickets
           </button>
@@ -165,9 +166,10 @@ export default function App() {
                 ? "btn btn-success"
                 : "btn btn-outline-success"
             }
-            onClick={() =>
-              setActivePage("create")
-            }
+            onClick={() => {
+              setActivePage("create");
+              setSelectedTicketId(null);
+            }}
           >
             Create Ticket
           </button>
@@ -182,16 +184,32 @@ export default function App() {
         </div>
       </div>
 
-      {activePage === "create" && (
-        <CreateTicket
+      {selectedTicketId ? (
+        <RequesterTicketDetail
           requester={currentRequester}
+          ticketId={selectedTicketId}
+          onBack={() => {
+            setSelectedTicketId(null);
+            setActivePage("tickets");
+          }}
         />
-      )}
+      ) : (
+        <>
+          {activePage === "create" && (
+            <CreateTicket
+              requester={currentRequester}
+            />
+          )}
 
-      {activePage === "tickets" && (
-        <MyTickets
-          requester={currentRequester}
-        />
+          {activePage === "tickets" && (
+            <MyTickets
+              requester={currentRequester}
+              onSelectTicket={(ticketId) =>
+                setSelectedTicketId(ticketId)
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );
