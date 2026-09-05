@@ -225,10 +225,8 @@ export default function CreateTicket({
     }
 
     if (
-      trimmedDescription.length <
-        10 ||
-      trimmedDescription.length >
-        2000
+      trimmedDescription.length < 10 ||
+      trimmedDescription.length > 2000
     ) {
       nextErrors.description =
         "Description must contain between 10 and 2000 characters.";
@@ -445,6 +443,7 @@ export default function CreateTicket({
 
     setSubmitError("");
     setCreatedTicket(null);
+
     setAttachmentUploadMessage(
       ""
     );
@@ -460,10 +459,6 @@ export default function CreateTicket({
     try {
       setSubmitting(true);
 
-      /*
-       * Step 1:
-       * Create the Ticket first.
-       */
       const ticket =
         await createTicket(
           requester.id,
@@ -486,44 +481,44 @@ export default function CreateTicket({
           }
         );
 
-      /*
-       * Ticket creation is successful
-       * before Attachment upload begins.
-       */
       setCreatedTicket(ticket);
 
       setClientRequestId(
         crypto.randomUUID()
       );
 
-      /*
-       * Step 2:
-       * Upload selected Attachments
-       * separately.
-       *
-       * Attachment failures do not
-       * undo Ticket creation.
-       */
       await uploadSelectedAttachments(
         ticket
       );
     } catch {
-      /*
-       * This catch represents
-       * Ticket creation failure.
-       *
-       * Entered values remain
-       * available for retry.
-       */
       setSubmitError(
         "Unable to create Ticket. Your entered information has been kept. Please try again."
       );
     } finally {
       setSubmitting(false);
+
       setUploadingAttachments(
         false
       );
     }
+  }
+
+  function formatFileSize(
+    size: number
+  ) {
+    if (
+      size >=
+      1024 * 1024
+    ) {
+      return `${(
+        size /
+        (1024 * 1024)
+      ).toFixed(1)} MB`;
+    }
+
+    return `${(
+      size / 1024
+    ).toFixed(1)} KB`;
   }
 
   const busy =
@@ -533,21 +528,40 @@ export default function CreateTicket({
   return (
     <div className="card shadow-sm">
       <div className="card-body p-4">
-        <h2 className="h4 mb-4">
-          Create Ticket
-        </h2>
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
+          <div>
+            <h2 className="h4 mb-1">
+              Create Ticket
+            </h2>
+
+            <p className="text-muted mb-0">
+              Submit a new IT support
+              request.
+            </p>
+          </div>
+
+          <span className="badge bg-success-subtle text-success border border-success px-3 py-2">
+  Current Requester · {requester.displayName}
+</span>
+        </div>
 
         {referenceError && (
-          <div className="alert alert-danger">
+          <div
+            className="alert alert-danger"
+            role="alert"
+          >
             {referenceError}
           </div>
         )}
 
         {createdTicket && (
-          <div className="alert alert-success">
-            <strong>
+          <div
+            className="alert alert-success"
+            role="status"
+          >
+            <div className="fw-bold">
               Ticket created successfully.
-            </strong>
+            </div>
 
             <div className="mt-2">
               Ticket Number:{" "}
@@ -557,11 +571,19 @@ export default function CreateTicket({
                 }
               </strong>
             </div>
+
+            <div className="small mt-1">
+              Your Ticket is now
+              available from My Tickets.
+            </div>
           </div>
         )}
 
         {submitError && (
-          <div className="alert alert-danger">
+          <div
+            className="alert alert-danger"
+            role="alert"
+          >
             {submitError}
           </div>
         )}
@@ -569,7 +591,10 @@ export default function CreateTicket({
         {attachmentUploadMessage &&
           failedAttachmentNames.length ===
             0 && (
-            <div className="alert alert-success">
+            <div
+              className="alert alert-success"
+              role="status"
+            >
               {
                 attachmentUploadMessage
               }
@@ -593,7 +618,7 @@ export default function CreateTicket({
               }
             </div>
 
-            <div className="mt-2">
+            <div className="mt-2 fw-semibold">
               Failed:
             </div>
 
@@ -614,518 +639,571 @@ export default function CreateTicket({
             handleSubmit
           }
         >
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="ticketNumber"
-              >
-                Ticket Number
-              </label>
+          <section className="zen-section p-3 p-md-4 mb-4">
+            <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
+              <h3 className="h6 mb-0">
+                Request Information
+              </h3>
 
-              <input
-                id="ticketNumber"
-                className="form-control"
-                value={
-                  createdTicket?.ticketNo ??
-                  "Generated after submission"
-                }
-                readOnly
-              />
+              <span className="badge bg-light text-dark border">
+                Read-only
+              </span>
             </div>
 
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="ticketDate"
-              >
-                Ticket Date
-              </label>
-
-              <input
-                id="ticketDate"
-                className="form-control"
-                value={
-                  createdTicket
-                    ? new Date(
-                        createdTicket.createdAt
-                      ).toLocaleString()
-                    : "Generated after submission"
-                }
-                readOnly
-              />
-            </div>
-
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="requester"
-              >
-                Requester
-              </label>
-
-              <input
-                id="requester"
-                className="form-control"
-                value={
-                  requester.displayName
-                }
-                readOnly
-              />
-            </div>
-
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="status"
-              >
-                Current Status
-              </label>
-
-              <input
-                id="status"
-                className="form-control"
-                value="New"
-                readOnly
-              />
-            </div>
-
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="category"
-              >
-                Category{" "}
-                <span className="text-danger">
-                  *
-                </span>
-              </label>
-
-              <select
-                id="category"
-                className={`form-select ${
-                  errors.categoryId
-                    ? "is-invalid"
-                    : ""
-                }`}
-                value={categoryId}
-                disabled={
-                  loadingReferenceData ||
-                  busy ||
-                  Boolean(
-                    createdTicket
-                  )
-                }
-                onChange={(
-                  event
-                ) =>
-                  setCategoryId(
-                    event.target.value
-                  )
-                }
-              >
-                <option value="">
-                  Select a Category
-                </option>
-
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={
-                        category.id
-                      }
-                      value={
-                        category.id
-                      }
-                    >
-                      {
-                        category.name
-                      }
-                    </option>
-                  )
-                )}
-              </select>
-
-              {errors.categoryId && (
-                <div className="invalid-feedback">
-                  {
-                    errors.categoryId
-                  }
-                </div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="relatedSystem"
-              >
-                Related System{" "}
-                <span className="text-danger">
-                  *
-                </span>
-              </label>
-
-              <select
-                id="relatedSystem"
-                className={`form-select ${
-                  errors.relatedSystemId
-                    ? "is-invalid"
-                    : ""
-                }`}
-                value={
-                  relatedSystemId
-                }
-                disabled={
-                  loadingReferenceData ||
-                  busy ||
-                  Boolean(
-                    createdTicket
-                  )
-                }
-                onChange={(
-                  event
-                ) =>
-                  setRelatedSystemId(
-                    event.target.value
-                  )
-                }
-              >
-                <option value="">
-                  Select a Related
-                  System
-                </option>
-
-                {relatedSystems.map(
-                  (system) => (
-                    <option
-                      key={
-                        system.id
-                      }
-                      value={
-                        system.id
-                      }
-                    >
-                      {system.name}
-                    </option>
-                  )
-                )}
-              </select>
-
-              {errors.relatedSystemId && (
-                <div className="invalid-feedback">
-                  {
-                    errors.relatedSystemId
-                  }
-                </div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label
-                className="form-label"
-                htmlFor="requestedPriority"
-              >
-                Requested Priority{" "}
-                <span className="text-danger">
-                  *
-                </span>
-              </label>
-
-              <select
-                id="requestedPriority"
-                className={`form-select ${
-                  errors.requestedPriority
-                    ? "is-invalid"
-                    : ""
-                }`}
-                value={
-                  requestedPriority
-                }
-                disabled={
-                  busy ||
-                  Boolean(
-                    createdTicket
-                  )
-                }
-                onChange={(
-                  event
-                ) =>
-                  setRequestedPriority(
-                    event.target
-                      .value as
-                      | RequestedPriority
-                      | ""
-                  )
-                }
-              >
-                <option value="">
-                  Select Priority
-                </option>
-
-                <option value="Low">
-                  Low
-                </option>
-
-                <option value="Medium">
-                  Medium
-                </option>
-
-                <option value="High">
-                  High
-                </option>
-
-                <option value="Urgent">
-                  Urgent
-                </option>
-              </select>
-
-              {errors.requestedPriority && (
-                <div className="invalid-feedback">
-                  {
-                    errors.requestedPriority
-                  }
-                </div>
-              )}
-            </div>
-
-            <div className="col-12">
-              <label
-                className="form-label"
-                htmlFor="summary"
-              >
-                Ticket Summary{" "}
-                <span className="text-danger">
-                  *
-                </span>
-              </label>
-
-              <input
-                id="summary"
-                className={`form-control ${
-                  errors.summary
-                    ? "is-invalid"
-                    : ""
-                }`}
-                value={summary}
-                maxLength={120}
-                disabled={
-                  busy ||
-                  Boolean(
-                    createdTicket
-                  )
-                }
-                onChange={(
-                  event
-                ) =>
-                  setSummary(
-                    event.target.value
-                  )
-                }
-              />
-
-              {errors.summary && (
-                <div className="invalid-feedback">
-                  {
-                    errors.summary
-                  }
-                </div>
-              )}
-
-              <div className="form-text">
-                {summary.length}/120
-                characters
-              </div>
-            </div>
-
-            <div className="col-12">
-              <label
-                className="form-label"
-                htmlFor="description"
-              >
-                Description{" "}
-                <span className="text-danger">
-                  *
-                </span>
-              </label>
-
-              <textarea
-                id="description"
-                className={`form-control ${
-                  errors.description
-                    ? "is-invalid"
-                    : ""
-                }`}
-                rows={6}
-                value={
-                  description
-                }
-                maxLength={2000}
-                disabled={
-                  busy ||
-                  Boolean(
-                    createdTicket
-                  )
-                }
-                onChange={(
-                  event
-                ) =>
-                  setDescription(
-                    event.target.value
-                  )
-                }
-              />
-
-              {errors.description && (
-                <div className="invalid-feedback">
-                  {
-                    errors.description
-                  }
-                </div>
-              )}
-
-              <div className="form-text">
-                {
-                  description.length
-                }
-                /2000 characters
-              </div>
-            </div>
-
-            <div className="col-12">
-              <div className="border rounded p-3 bg-light">
+            <div className="row g-3">
+              <div className="col-md-6">
                 <label
-                  className="form-label fw-semibold"
-                  htmlFor="ticketAttachments"
+                  className="form-label"
+                  htmlFor="ticketNumber"
                 >
-                  Attachments
+                  Ticket Number
                 </label>
 
                 <input
-                  key={
-                    attachmentInputKey
+                  id="ticketNumber"
+                  className="form-control"
+                  value={
+                    createdTicket?.ticketNo ??
+                    "Generated after submission"
                   }
-                  id="ticketAttachments"
-                  type="file"
-                  className={`form-control ${
-                    attachmentSelectionError
+                  readOnly
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="ticketDate"
+                >
+                  Ticket Date
+                </label>
+
+                <input
+                  id="ticketDate"
+                  className="form-control"
+                  value={
+                    createdTicket
+                      ? new Date(
+                          createdTicket.createdAt
+                        ).toLocaleString()
+                      : "Generated after submission"
+                  }
+                  readOnly
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="requester"
+                >
+                  Requester
+                </label>
+
+                <input
+                  id="requester"
+                  className="form-control"
+                  value={
+                    requester.displayName
+                  }
+                  readOnly
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="status"
+                >
+                  Current Status
+                </label>
+
+                <input
+                  id="status"
+                  className="form-control"
+                  value="New"
+                  readOnly
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="zen-section p-3 p-md-4 mb-4">
+            <div className="mb-3">
+              <h3 className="h6 mb-1">
+                Ticket Details
+              </h3>
+
+              <p className="text-muted small mb-0">
+                Fields marked with{" "}
+                <span className="text-danger">
+                  *
+                </span>{" "}
+                are required.
+              </p>
+            </div>
+
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="category"
+                >
+                  Category{" "}
+                  <span className="text-danger">
+                    *
+                  </span>
+                </label>
+
+                <select
+                  id="category"
+                  className={`form-select ${
+                    errors.categoryId
                       ? "is-invalid"
                       : ""
                   }`}
-                  accept=".jpg,.jpeg,.png,.webp,.pdf"
-                  multiple
+                  value={categoryId}
+                  disabled={
+                    loadingReferenceData ||
+                    busy ||
+                    Boolean(
+                      createdTicket
+                    )
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setCategoryId(
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Select a Category
+                  </option>
+
+                  {categories.map(
+                    (category) => (
+                      <option
+                        key={
+                          category.id
+                        }
+                        value={
+                          category.id
+                        }
+                      >
+                        {
+                          category.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+
+                {errors.categoryId && (
+                  <div className="invalid-feedback">
+                    {
+                      errors.categoryId
+                    }
+                  </div>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="relatedSystem"
+                >
+                  Related System{" "}
+                  <span className="text-danger">
+                    *
+                  </span>
+                </label>
+
+                <select
+                  id="relatedSystem"
+                  className={`form-select ${
+                    errors.relatedSystemId
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                  value={
+                    relatedSystemId
+                  }
+                  disabled={
+                    loadingReferenceData ||
+                    busy ||
+                    Boolean(
+                      createdTicket
+                    )
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setRelatedSystemId(
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Select a Related
+                    System
+                  </option>
+
+                  {relatedSystems.map(
+                    (system) => (
+                      <option
+                        key={
+                          system.id
+                        }
+                        value={
+                          system.id
+                        }
+                      >
+                        {
+                          system.name
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+
+                {errors.relatedSystemId && (
+                  <div className="invalid-feedback">
+                    {
+                      errors.relatedSystemId
+                    }
+                  </div>
+                )}
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  className="form-label"
+                  htmlFor="requestedPriority"
+                >
+                  Requested Priority{" "}
+                  <span className="text-danger">
+                    *
+                  </span>
+                </label>
+
+                <select
+                  id="requestedPriority"
+                  className={`form-select ${
+                    errors.requestedPriority
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                  value={
+                    requestedPriority
+                  }
                   disabled={
                     busy ||
                     Boolean(
                       createdTicket
                     )
                   }
-                  onChange={
-                    handleAttachmentChange
+                  onChange={(
+                    event
+                  ) =>
+                    setRequestedPriority(
+                      event.target
+                        .value as
+                        | RequestedPriority
+                        | ""
+                    )
+                  }
+                >
+                  <option value="">
+                    Select Priority
+                  </option>
+
+                  <option value="Low">
+                    Low
+                  </option>
+
+                  <option value="Medium">
+                    Medium
+                  </option>
+
+                  <option value="High">
+                    High
+                  </option>
+
+                  <option value="Urgent">
+                    Urgent
+                  </option>
+                </select>
+
+                {errors.requestedPriority && (
+                  <div className="invalid-feedback">
+                    {
+                      errors.requestedPriority
+                    }
+                  </div>
+                )}
+              </div>
+
+              <div className="col-12">
+                <label
+                  className="form-label"
+                  htmlFor="summary"
+                >
+                  Ticket Summary{" "}
+                  <span className="text-danger">
+                    *
+                  </span>
+                </label>
+
+                <input
+                  id="summary"
+                  className={`form-control ${
+                    errors.summary
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                  value={summary}
+                  maxLength={120}
+                  placeholder="Briefly describe the issue"
+                  disabled={
+                    busy ||
+                    Boolean(
+                      createdTicket
+                    )
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setSummary(
+                      event.target.value
+                    )
                   }
                 />
 
-                <div className="form-text">
-                  Optional. JPG,
-                  JPEG, PNG, WEBP,
-                  or PDF. Maximum 5
-                  MB per file and up
-                  to 5 Attachments.
-                </div>
-
-                {attachmentSelectionError && (
-                  <div className="invalid-feedback d-block">
+                {errors.summary && (
+                  <div className="invalid-feedback">
                     {
-                      attachmentSelectionError
+                      errors.summary
                     }
                   </div>
                 )}
 
-                {selectedAttachments.length >
-                  0 && (
-                  <div className="mt-3">
-                    <div className="fw-semibold mb-2">
-                      Selected
-                      Attachments (
-                      {
-                        selectedAttachments.length
-                      }
-                      /5)
-                    </div>
+                <div className="form-text text-end">
+                  {summary.length}/120
+                  characters
+                </div>
+              </div>
 
-                    <div className="list-group">
-                      {selectedAttachments.map(
-                        (
-                          file,
-                          index
-                        ) => (
-                          <div
-                            key={`${file.name}-${file.size}-${index}`}
-                            className="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2"
-                          >
-                            <div>
-                              <div>
-                                {
-                                  file.name
-                                }
-                              </div>
+              <div className="col-12">
+                <label
+                  className="form-label"
+                  htmlFor="description"
+                >
+                  Description{" "}
+                  <span className="text-danger">
+                    *
+                  </span>
+                </label>
 
-                              <small className="text-muted">
-                                {(
-                                  file.size /
-                                  1024
-                                ).toFixed(
-                                  1
-                                )}{" "}
-                                KB
-                              </small>
-                            </div>
+                <textarea
+                  id="description"
+                  className={`form-control ${
+                    errors.description
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                  rows={6}
+                  value={
+                    description
+                  }
+                  maxLength={2000}
+                  placeholder="Describe the problem, what happened, and any useful details."
+                  disabled={
+                    busy ||
+                    Boolean(
+                      createdTicket
+                    )
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setDescription(
+                      event.target.value
+                    )
+                  }
+                />
 
-                            {!createdTicket && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-danger btn-sm"
-                                aria-label={`Remove selected ${file.name}`}
-                                disabled={
-                                  busy
-                                }
-                                onClick={() =>
-                                  removeSelectedAttachment(
-                                    index
-                                  )
-                                }
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        )
-                      )}
-                    </div>
+                {errors.description && (
+                  <div className="invalid-feedback">
+                    {
+                      errors.description
+                    }
                   </div>
                 )}
 
-                {uploadingAttachments && (
-                  <div className="mt-3">
-                    Uploading
-                    Attachments...
-                  </div>
-                )}
+                <div className="form-text text-end">
+                  {
+                    description.length
+                  }
+                  /2000 characters
+                </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section className="zen-section p-3 p-md-4">
+            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+              <div>
+                <h3 className="h6 mb-1">
+                  Attachments
+                </h3>
+
+                <p className="text-muted small mb-0">
+                  Optional supporting
+                  evidence.
+                </p>
+              </div>
+
+              <span className="badge bg-success-subtle text-success border border-success">
+                {
+                  selectedAttachments.length
+                }{" "}
+                / 5 Selected
+              </span>
+            </div>
+
+            <input
+              key={
+                attachmentInputKey
+              }
+              id="ticketAttachments"
+              type="file"
+              className={`form-control ${
+                attachmentSelectionError
+                  ? "is-invalid"
+                  : ""
+              }`}
+              accept=".jpg,.jpeg,.png,.webp,.pdf"
+              multiple
+              disabled={
+                busy ||
+                Boolean(
+                  createdTicket
+                )
+              }
+              onChange={
+                handleAttachmentChange
+              }
+            />
+
+            <div className="form-text">
+              Optional. JPG, JPEG,
+              PNG, WEBP, or PDF.
+              Maximum 5 MB per file
+              and up to 5
+              Attachments.
+            </div>
+
+            {attachmentSelectionError && (
+              <div className="invalid-feedback d-block">
+                {
+                  attachmentSelectionError
+                }
+              </div>
+            )}
+
+            {selectedAttachments.length >
+              0 && (
+              <div className="mt-3">
+                <div className="fw-semibold mb-2">
+                  Selected
+                  Attachments
+                </div>
+
+                <div className="list-group">
+                  {selectedAttachments.map(
+                    (
+                      file,
+                      index
+                    ) => (
+                      <div
+                        key={`${file.name}-${file.size}-${index}`}
+                        className="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3"
+                      >
+                        <div>
+                          <div className="fw-semibold">
+                            {
+                              file.name
+                            }
+                          </div>
+
+                          <small className="text-muted">
+                            {formatFileSize(
+                              file.size
+                            )}
+                          </small>
+                        </div>
+
+                        {!createdTicket && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm"
+                            aria-label={`Remove selected ${file.name}`}
+                            disabled={
+                              busy
+                            }
+                            onClick={() =>
+                              removeSelectedAttachment(
+                                index
+                              )
+                            }
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {uploadingAttachments && (
+              <div
+                className="alert alert-light border mt-3 mb-0"
+                role="status"
+              >
+                <span
+                  className="spinner-border spinner-border-sm text-success me-2"
+                  aria-hidden="true"
+                />
+
+                Uploading
+                Attachments...
+              </div>
+            )}
+          </section>
 
           {loadingReferenceData && (
-            <p className="mt-3 mb-0">
+            <div
+              className="alert alert-light border mt-4 mb-0"
+              role="status"
+            >
+              <span
+                className="spinner-border spinner-border-sm text-success me-2"
+                aria-hidden="true"
+              />
+
               Loading Ticket
               reference data...
-            </p>
+            </div>
           )}
 
-          <div className="d-flex justify-content-end mt-4">
+          <div className="d-flex flex-column flex-sm-row justify-content-end mt-4">
             <button
               type="submit"
-              className="btn btn-success"
+              className="btn btn-success px-4"
               disabled={
                 busy ||
                 loadingReferenceData ||

@@ -76,9 +76,6 @@ export default function RequesterTicketDetail({
     setAttachmentSectionKey,
   ] = useState(0);
 
-  /*
-   * Load Ticket Detail.
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -121,12 +118,6 @@ export default function RequesterTicketDetail({
     ticketId,
   ]);
 
-  /*
-   * Load Attachment metadata separately.
-   *
-   * Attachment failure must not cause the
-   * Ticket itself to disappear.
-   */
   useEffect(() => {
     let cancelled = false;
 
@@ -192,10 +183,6 @@ export default function RequesterTicketDetail({
 
       setFailedUpload(null);
 
-      /*
-       * Remount AttachmentSection so the
-       * successful selected file is cleared.
-       */
       setAttachmentSectionKey(
         (current) =>
           current + 1
@@ -286,7 +273,6 @@ export default function RequesterTicketDetail({
       );
 
       link.click();
-
       link.remove();
 
       URL.revokeObjectURL(
@@ -299,10 +285,37 @@ export default function RequesterTicketDetail({
     }
   }
 
+  function getPriorityBadgeClass(
+    priority: string
+  ) {
+    switch (priority) {
+      case "Urgent":
+        return "text-bg-danger";
+
+      case "High":
+        return "text-bg-warning";
+
+      case "Medium":
+        return "text-bg-success";
+
+      case "Low":
+      default:
+        return "bg-light text-dark border";
+    }
+  }
+
   if (loading) {
     return (
       <div className="card shadow-sm">
-        <div className="card-body p-4 text-center">
+        <div
+          className="card-body p-4 text-center"
+          role="status"
+        >
+          <div
+            className="spinner-border spinner-border-sm text-success me-2"
+            aria-hidden="true"
+          />
+
           Loading Ticket detail...
         </div>
       </div>
@@ -321,10 +334,13 @@ export default function RequesterTicketDetail({
             className="btn btn-outline-success mb-3"
             onClick={onBack}
           >
-            Back to My Tickets
+            ← Back to My Tickets
           </button>
 
-          <div className="alert alert-danger mb-0">
+          <div
+            className="alert alert-danger mb-0"
+            role="alert"
+          >
             {errorMessage ||
               "Unable to load Ticket detail. Please try again."}
           </div>
@@ -339,166 +355,238 @@ export default function RequesterTicketDetail({
         <div className="card-body p-4">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
             <div>
-              <h2 className="h4 mb-1">
-                Ticket Detail
-              </h2>
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h2 className="h4 mb-0">
+                  Ticket Detail
+                </h2>
+
+                <span className="badge bg-success-subtle text-success border border-success">
+                  {ticket.status}
+                </span>
+
+                <span
+                  className={`badge ${getPriorityBadgeClass(
+                    ticket.requestedPriority
+                  )}`}
+                >
+                  {
+                    ticket.requestedPriority
+                  }
+                </span>
+              </div>
 
               <p className="text-muted mb-0">
-                {ticket.ticketNo}
+                Ticket Number:{" "}
+                <strong>
+                  {ticket.ticketNo}
+                </strong>
               </p>
             </div>
 
             <button
-              type="button"
-              className="btn btn-outline-success"
-              onClick={onBack}
-            >
-              Back to My Tickets
-            </button>
+  type="button"
+  className="btn btn-outline-success"
+  aria-label="Back to My Tickets"
+  onClick={onBack}
+>
+  ← Back to My Tickets
+</button>
           </div>
 
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label">
-                Ticket Number
-              </label>
+          <div className="zen-section p-3 p-md-4">
+            <div className="d-flex justify-content-between align-items-center gap-2 mb-3">
+              <h3 className="h6 mb-0">
+                Ticket Information
+              </h3>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.ticketNo
-                }
-                readOnly
-              />
+              <span className="badge bg-light text-dark border">
+                Read-only
+              </span>
             </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Requester
-              </label>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailTicketNumber"
+                  className="form-label"
+                >
+                  Ticket Number
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.requester
-                    .displayName
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailTicketNumber"
+                  className="form-control"
+                  value={
+                    ticket.ticketNo
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Category
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailRequester"
+                  className="form-label"
+                >
+                  Requester
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.category.name
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailRequester"
+                  className="form-control"
+                  value={
+                    ticket.requester
+                      .displayName
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Related System
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailCategory"
+                  className="form-label"
+                >
+                  Category
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.relatedSystem
-                    .name
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailCategory"
+                  className="form-control"
+                  value={
+                    ticket.category.name
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Requested Priority
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailRelatedSystem"
+                  className="form-label"
+                >
+                  Related System
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.requestedPriority
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailRelatedSystem"
+                  className="form-control"
+                  value={
+                    ticket.relatedSystem
+                      .name
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Status
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailPriority"
+                  className="form-label"
+                >
+                  Requested Priority
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.status
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailPriority"
+                  className="form-control"
+                  value={
+                    ticket.requestedPriority
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-12">
-              <label className="form-label">
-                Summary
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailStatus"
+                  className="form-label"
+                >
+                  Status
+                </label>
 
-              <input
-                className="form-control"
-                value={
-                  ticket.summary
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailStatus"
+                  className="form-control"
+                  value={
+                    ticket.status
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-12">
-              <label className="form-label">
-                Description
-              </label>
+              <div className="col-12">
+                <label
+                  htmlFor="detailSummary"
+                  className="form-label"
+                >
+                  Summary
+                </label>
 
-              <textarea
-                className="form-control"
-                rows={5}
-                value={
-                  ticket.description
-                }
-                readOnly
-              />
-            </div>
+                <input
+                  id="detailSummary"
+                  className="form-control"
+                  value={
+                    ticket.summary
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Ticket Date
-              </label>
+              <div className="col-12">
+                <label
+                  htmlFor="detailDescription"
+                  className="form-label"
+                >
+                  Description
+                </label>
 
-              <input
-                className="form-control"
-                value={new Date(
-                  ticket.createdAt
-                ).toLocaleString()}
-                readOnly
-              />
-            </div>
+                <textarea
+                  id="detailDescription"
+                  className="form-control"
+                  rows={5}
+                  value={
+                    ticket.description
+                  }
+                  readOnly
+                />
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">
-                Last Updated
-              </label>
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailCreatedAt"
+                  className="form-label"
+                >
+                  Ticket Date
+                </label>
 
-              <input
-                className="form-control"
-                value={new Date(
-                  ticket.updatedAt
-                ).toLocaleString()}
-                readOnly
-              />
+                <input
+                  id="detailCreatedAt"
+                  className="form-control"
+                  value={new Date(
+                    ticket.createdAt
+                  ).toLocaleString()}
+                  readOnly
+                />
+              </div>
+
+              <div className="col-md-6">
+                <label
+                  htmlFor="detailUpdatedAt"
+                  className="form-label"
+                >
+                  Last Updated
+                </label>
+
+                <input
+                  id="detailUpdatedAt"
+                  className="form-control"
+                  value={new Date(
+                    ticket.updatedAt
+                  ).toLocaleString()}
+                  readOnly
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -515,7 +603,15 @@ export default function RequesterTicketDetail({
 
       {attachmentsLoading ? (
         <div className="card shadow-sm">
-          <div className="card-body p-4 text-center">
+          <div
+            className="card-body p-4 text-center"
+            role="status"
+          >
+            <div
+              className="spinner-border spinner-border-sm text-success me-2"
+              aria-hidden="true"
+            />
+
             Loading Attachments...
           </div>
         </div>
