@@ -66,10 +66,33 @@ model Ticket {
   category      Category             @relation(fields: [categoryId], references: [id])
   relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id])
 
+  attachments Attachment[]
+
   @@index([requesterId])
   @@index([categoryId])
   @@index([relatedSystemId])
   @@index([requesterId, updatedAt])
+}
+
+model Attachment {
+  id                    String    @id @default(uuid())
+  ticketId              String
+  originalFilename      String
+  storageKey            String    @unique
+  mimeType              String
+  sizeBytes             Int
+  uploadedByRequesterId String
+  isRemoved             Boolean   @default(false)
+  removedAt             DateTime?
+  removedByRequesterId  String?
+  removalReason         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([ticketId, isRemoved])
 }
 
 model TicketNumberSequence {

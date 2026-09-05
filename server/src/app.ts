@@ -2,6 +2,9 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { getPrisma } from "./prisma.js";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { attachmentStorage } from "./attachments/storage.js";
+import { attachmentUploadMiddleware } from "./attachments/upload.js";
 
 export const app = express();
 
@@ -417,107 +420,672 @@ app.get("/api/v1/tickets", async (req: Request, res: Response) => {
   }
 });
 // ---------------------------------------------------------------------------
+// Lab 2 - Attachment Upload
+// POST /api/v1/tickets/:ticketId/attachments
+// ---------------------------------------------------------------------------
+app.post(
+  "/api/v1/tickets/:ticketId/attachments",
+  attachmentUploadMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const prisma = getPrisma();
+
+      const requesterId = req.header(
+        "X-Development-Requester-Id"
+      );
+
+      if (!requesterId) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_REQUIRED",
+            message:
+              "Select a Development Requester before using this feature.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const requester =
+        await prisma.developmentRequester.findFirst({
+          where: {
+            id: requesterId,
+            isActive: true,
+          },
+        });
+
+      if (!requester) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_INVALID",
+            message:
+              "The selected Development Requester is not available.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const ticketId = req.params.ticketId;
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          id: ticketId,
+          requesterId,
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      if (!req.file) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_REQUIRED",
+            message: "Select a file to upload.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const activeAttachmentCount =
+        await prisma.attachment.count({
+          where: {
+            ticketId,
+            isRemoved: false,
+          },
+        });
+
+      if (activeAttachmentCount >= 5) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_LIMIT_REACHED",
+            message:
+              "A Ticket may contain no more than five active Attachments.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const storageKey = randomUUID();
+
+      await attachmentStorage.save(
+        storageKey,
+        req.file.buffer,
+        req.file.mimetype
+      );
+
+      try {
+        const attachment =
+          await prisma.attachment.create({
+            data: {
+              ticketId,
+              originalFilename:
+                req.file.originalname,
+              storageKey,
+              mimeType: req.file.mimetype,
+              sizeBytes: req.file.size,
+              uploadedByRequesterId:
+                requesterId,
+            },
+          });
+
+        return res.status(201).json({
+          data: {
+            id: attachment.id,
+            ticketId: attachment.ticketId,
+            originalFilename:
+              attachment.originalFilename,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            isRemoved: attachment.isRemoved,
+            createdAt: attachment.createdAt,
+          },
+        });
+      } catch (error) {
+        await attachmentStorage.remove(
+          storageKey
+        );
+
+        throw error;
+      }
+    } catch (error) {
+      console.error(
+        "Failed to upload Attachment:",
+        error
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "ATTACHMENT_UPLOAD_FAILED",
+          message:
+            "Unable to upload Attachment.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+// ---------------------------------------------------------------------------
+// Lab 2 - Attachment Metadata
+// GET /api/v1/tickets/:ticketId/attachments
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/v1/tickets/:ticketId/attachments",
+  async (req: Request, res: Response) => {
+    try {
+      const prisma = getPrisma();
+
+      const requesterId = req.header(
+        "X-Development-Requester-Id"
+      );
+
+      if (!requesterId) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_REQUIRED",
+            message:
+              "Select a Development Requester before using this feature.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const requester =
+        await prisma.developmentRequester.findFirst({
+          where: {
+            id: requesterId,
+            isActive: true,
+          },
+        });
+
+      if (!requester) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_INVALID",
+            message:
+              "The selected Development Requester is not available.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const ticketId = req.params.ticketId;
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          id: ticketId,
+          requesterId,
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const attachments =
+        await prisma.attachment.findMany({
+          where: {
+            ticketId,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
+
+      return res.status(200).json({
+        data: attachments.map((attachment) => ({
+          id: attachment.id,
+          ticketId: attachment.ticketId,
+          originalFilename:
+            attachment.originalFilename,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          isRemoved: attachment.isRemoved,
+          removedAt: attachment.removedAt,
+          removalReason:
+            attachment.removalReason,
+          createdAt: attachment.createdAt,
+        })),
+      });
+    } catch (error) {
+      console.error(
+        "Failed to retrieve Attachments:",
+        error
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "ATTACHMENT_LIST_FAILED",
+          message:
+            "Unable to load Attachments.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+// ---------------------------------------------------------------------------
+// Lab 2 - Attachment Download
+// GET /api/v1/tickets/:ticketId/attachments/:attachmentId/download
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/v1/tickets/:ticketId/attachments/:attachmentId/download",
+  async (req: Request, res: Response) => {
+    try {
+      const prisma = getPrisma();
+
+      const requesterId = req.header(
+        "X-Development-Requester-Id"
+      );
+
+      if (!requesterId) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_REQUIRED",
+            message:
+              "Select a Development Requester before using this feature.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const requester =
+        await prisma.developmentRequester.findFirst({
+          where: {
+            id: requesterId,
+            isActive: true,
+          },
+        });
+
+      if (!requester) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_INVALID",
+            message:
+              "The selected Development Requester is not available.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const { ticketId, attachmentId } = req.params;
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          id: ticketId,
+          requesterId,
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const attachment =
+        await prisma.attachment.findFirst({
+          where: {
+            id: attachmentId,
+            ticketId,
+            isRemoved: false,
+          },
+        });
+
+      if (!attachment) {
+        return res.status(404).json({
+          error: {
+            code: "ATTACHMENT_NOT_FOUND",
+            message: "Attachment not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const storedFile = await attachmentStorage.get(
+        attachment.storageKey
+      );
+
+      if (!storedFile) {
+        return res.status(404).json({
+          error: {
+            code: "ATTACHMENT_FILE_NOT_FOUND",
+            message: "Attachment file not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const safeFilename =
+        attachment.originalFilename.replace(
+          /[\r\n"]/g,
+          "_"
+        );
+
+      res.setHeader(
+        "Content-Type",
+        attachment.mimeType
+      );
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${safeFilename}"`
+      );
+
+      return res.status(200).send(storedFile.buffer);
+    } catch (error) {
+      console.error(
+        "Failed to download Attachment:",
+        error
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "ATTACHMENT_DOWNLOAD_FAILED",
+          message:
+            "Unable to download Attachment.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+// ---------------------------------------------------------------------------
+// Lab 2 - Attachment Soft Removal
+// DELETE /api/v1/tickets/:ticketId/attachments/:attachmentId
+// ---------------------------------------------------------------------------
+app.delete(
+  "/api/v1/tickets/:ticketId/attachments/:attachmentId",
+  async (req: Request, res: Response) => {
+    try {
+      const prisma = getPrisma();
+
+      const requesterId = req.header(
+        "X-Development-Requester-Id"
+      );
+
+      if (!requesterId) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_REQUIRED",
+            message:
+              "Select a Development Requester before using this feature.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const requester =
+        await prisma.developmentRequester.findFirst({
+          where: {
+            id: requesterId,
+            isActive: true,
+          },
+        });
+
+      if (!requester) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_INVALID",
+            message:
+              "The selected Development Requester is not available.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const confirmed = req.body?.confirmed;
+      const reason =
+        typeof req.body?.reason === "string"
+          ? req.body.reason.trim()
+          : "";
+
+      if (confirmed !== true) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_REMOVAL_CONFIRMATION_REQUIRED",
+            message:
+              "Confirm Attachment removal before continuing.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      if (!reason) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_REMOVAL_REASON_REQUIRED",
+            message:
+              "A removal reason is required.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const { ticketId, attachmentId } = req.params;
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          id: ticketId,
+          requesterId,
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const attachment =
+        await prisma.attachment.findFirst({
+          where: {
+            id: attachmentId,
+            ticketId,
+            uploadedByRequesterId: requesterId,
+            isRemoved: false,
+          },
+        });
+
+      if (!attachment) {
+        return res.status(404).json({
+          error: {
+            code: "ATTACHMENT_NOT_FOUND",
+            message: "Attachment not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const removedAttachment =
+        await prisma.attachment.update({
+          where: {
+            id: attachment.id,
+          },
+          data: {
+            isRemoved: true,
+            removedAt: new Date(),
+            removedByRequesterId: requesterId,
+            removalReason: reason,
+          },
+        });
+
+      // Storage deletion happens after metadata is soft-removed.
+      // If storage deletion fails, the Attachment remains hidden.
+      try {
+        await attachmentStorage.remove(
+          attachment.storageKey
+        );
+      } catch (storageError) {
+        console.error(
+          "Attachment storage cleanup failed:",
+          storageError
+        );
+      }
+
+      return res.status(200).json({
+        data: {
+          id: removedAttachment.id,
+          ticketId: removedAttachment.ticketId,
+          originalFilename:
+            removedAttachment.originalFilename,
+          mimeType: removedAttachment.mimeType,
+          sizeBytes: removedAttachment.sizeBytes,
+          isRemoved: removedAttachment.isRemoved,
+          removedAt: removedAttachment.removedAt,
+          removalReason:
+            removedAttachment.removalReason,
+          createdAt: removedAttachment.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Failed to remove Attachment:",
+        error
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "ATTACHMENT_REMOVAL_FAILED",
+          message:
+            "Unable to remove Attachment.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+// ---------------------------------------------------------------------------
 // Lab 2 - Requester Ticket Detail
 // GET /api/v1/tickets/:id
 // ---------------------------------------------------------------------------
-app.get("/api/v1/tickets/:id", async (req: Request, res: Response) => {
-  try {
-    const prisma = getPrisma();
+app.get(
+  "/api/v1/tickets/:id",
+  async (req: Request, res: Response) => {
+    try {
+      const prisma = getPrisma();
 
-    const requesterId = req.header("X-Development-Requester-Id");
-    const ticketId = req.params.id;
+      const requesterId = req.header(
+        "X-Development-Requester-Id"
+      );
 
-    if (!requesterId) {
-      return res.status(422).json({
+      if (!requesterId) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_REQUIRED",
+            message:
+              "Select a Development Requester before using this feature.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const requester =
+        await prisma.developmentRequester.findFirst({
+          where: {
+            id: requesterId,
+            isActive: true,
+          },
+        });
+
+      if (!requester) {
+        return res.status(422).json({
+          error: {
+            code: "DEVELOPMENT_REQUESTER_INVALID",
+            message:
+              "The selected Development Requester is not available.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const ticket = await prisma.ticket.findFirst({
+        where: {
+          id: req.params.id,
+          requesterId,
+        },
+        include: {
+          requester: true,
+          category: true,
+          relatedSystem: true,
+        },
+      });
+
+      // Do not reveal whether another Requester's Ticket exists.
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      return res.status(200).json({
+        data: {
+          id: ticket.id,
+          ticketNo: ticket.ticketNo,
+
+          requester: {
+            id: ticket.requester.id,
+            displayName: ticket.requester.displayName,
+          },
+
+          category: {
+            id: ticket.category.id,
+            name: ticket.category.name,
+          },
+
+          relatedSystem: {
+            id: ticket.relatedSystem.id,
+            name: ticket.relatedSystem.name,
+          },
+
+          summary: ticket.summary,
+          description: ticket.description,
+          requestedPriority: ticket.requestedPriority,
+          status: ticket.status,
+          createdAt: ticket.createdAt,
+          updatedAt: ticket.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Failed to retrieve Ticket Detail:",
+        error
+      );
+
+      return res.status(500).json({
         error: {
-          code: "DEVELOPMENT_REQUESTER_REQUIRED",
-          message:
-            "Select a Development Requester before using this feature.",
+          code: "TICKET_DETAIL_FAILED",
+          message: "Unable to load Ticket Detail.",
           fieldErrors: [],
         },
       });
     }
-
-    const requester = await prisma.developmentRequester.findFirst({
-      where: {
-        id: requesterId,
-        isActive: true,
-      },
-    });
-
-    if (!requester) {
-      return res.status(422).json({
-        error: {
-          code: "DEVELOPMENT_REQUESTER_INVALID",
-          message:
-            "The selected Development Requester is not available.",
-          fieldErrors: [],
-        },
-      });
-    }
-
-    const ticket = await prisma.ticket.findFirst({
-      where: {
-        id: ticketId,
-        requesterId,
-      },
-      include: {
-        requester: true,
-        category: true,
-        relatedSystem: true,
-      },
-    });
-
-    if (!ticket) {
-      return res.status(404).json({
-        error: {
-          code: "TICKET_NOT_FOUND",
-          message: "Ticket was not found.",
-          fieldErrors: [],
-        },
-      });
-    }
-
-    return res.status(200).json({
-      data: {
-        id: ticket.id,
-        ticketNo: ticket.ticketNo,
-
-        requester: {
-          id: ticket.requester.id,
-          displayName: ticket.requester.displayName,
-        },
-
-        category: {
-          id: ticket.category.id,
-          name: ticket.category.name,
-        },
-
-        relatedSystem: {
-          id: ticket.relatedSystem.id,
-          name: ticket.relatedSystem.name,
-        },
-
-        summary: ticket.summary,
-        description: ticket.description,
-        requestedPriority: ticket.requestedPriority,
-        status: ticket.status,
-        createdAt: ticket.createdAt,
-        updatedAt: ticket.updatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Failed to retrieve Ticket detail:", error);
-
-    return res.status(500).json({
-      error: {
-        code: "TICKET_DETAIL_FAILED",
-        message: "Unable to load Ticket detail.",
-        fieldErrors: [],
-      },
-    });
   }
-});
+);
 // ---------------------------------------------------------------------------
 // Lab 2 - Create Ticket
 // POST /api/v1/tickets
