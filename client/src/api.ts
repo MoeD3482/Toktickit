@@ -65,3 +65,100 @@ export async function getDevelopmentRequesters(): Promise<
 
   return result.data;
 }
+
+export interface RelatedSystem {
+  id: string;
+  name: string;
+}
+
+interface CategoryListResponse {
+  data: Category[];
+}
+
+interface RelatedSystemListResponse {
+  data: RelatedSystem[];
+}
+
+export type RequestedPriority = "Low" | "Medium" | "High" | "Urgent";
+
+export interface CreateTicketInput {
+  categoryId: number;
+  relatedSystemId: string;
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+  clientRequestId: string;
+}
+
+export interface CreatedTicket {
+  id: string;
+  ticketNo: string;
+  requester: {
+    id: string;
+    displayName: string;
+  };
+  category: {
+    id: number;
+    name: string;
+  };
+  relatedSystem: {
+    id: string;
+    name: string;
+  };
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+  status: "New";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreatedTicketResponse {
+  data: CreatedTicket;
+}
+
+export async function getActiveCategories(): Promise<Category[]> {
+  const response = await fetch(`${API_URL}/api/v1/categories`);
+
+  if (!response.ok) {
+    throw new Error("Unable to load request categories");
+  }
+
+  const result: CategoryListResponse = await response.json();
+
+  return result.data;
+}
+
+export async function getRelatedSystems(): Promise<RelatedSystem[]> {
+  const response = await fetch(`${API_URL}/api/v1/related-systems`);
+
+  if (!response.ok) {
+    throw new Error("Unable to load Related Systems");
+  }
+
+  const result: RelatedSystemListResponse = await response.json();
+
+  return result.data;
+}
+
+export async function createTicket(
+  requesterId: string,
+  input: CreateTicketInput
+): Promise<CreatedTicket> {
+  const response = await fetch(`${API_URL}/api/v1/tickets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Development-Requester-Id": requesterId,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to create Ticket");
+  }
+
+  const result: CreatedTicketResponse = await response.json();
+
+  return result.data;
+}

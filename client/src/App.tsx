@@ -1,4 +1,5 @@
 import { useState } from "react";
+import CreateTicket from "./components/CreateTicket.js";
 import {
   checkSystem,
   Category,
@@ -105,14 +106,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="alert alert-success">
-        Development Requester selected successfully.
-      </div>
-
-      <p>
-        Create Ticket and My Tickets will be added in the following Lab 2
-        feature issues.
-      </p>
+            <CreateTicket requester={currentRequester} />
     </div>
   );
 }
