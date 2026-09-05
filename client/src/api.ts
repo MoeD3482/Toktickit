@@ -161,4 +161,106 @@ export async function createTicket(
   const result: CreatedTicketResponse = await response.json();
 
   return result.data;
+  
+}
+export interface TicketListItem {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  category: {
+    id: number;
+    name: string;
+  };
+  relatedSystem: {
+    id: string;
+    name: string;
+  };
+  requestedPriority: RequestedPriority;
+  status: "New";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TicketListMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface MyTicketsQuery {
+  search?: string;
+  categoryId?: number;
+  relatedSystemId?: string;
+  requestedPriority?: RequestedPriority;
+  status?: "New";
+  sort?: "ticketNo" | "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+interface MyTicketsResponse {
+  data: TicketListItem[];
+  meta: TicketListMeta;
+}
+
+export async function getMyTickets(
+  requesterId: string,
+  query: MyTicketsQuery = {}
+): Promise<MyTicketsResponse> {
+  const params = new URLSearchParams();
+
+  if (query.search) {
+    params.set("search", query.search);
+  }
+
+  if (query.categoryId !== undefined) {
+    params.set("categoryId", String(query.categoryId));
+  }
+
+  if (query.relatedSystemId) {
+    params.set("relatedSystemId", query.relatedSystemId);
+  }
+
+  if (query.requestedPriority) {
+    params.set("requestedPriority", query.requestedPriority);
+  }
+
+  if (query.status) {
+    params.set("status", query.status);
+  }
+
+  if (query.sort) {
+    params.set("sort", query.sort);
+  }
+
+  if (query.order) {
+    params.set("order", query.order);
+  }
+
+  if (query.page !== undefined) {
+    params.set("page", String(query.page));
+  }
+
+  if (query.pageSize !== undefined) {
+    params.set("pageSize", String(query.pageSize));
+  }
+
+  const queryString = params.toString();
+
+  const response = await fetch(
+    `${API_URL}/api/v1/tickets${queryString ? `?${queryString}` : ""}`,
+    {
+      headers: {
+        "X-Development-Requester-Id": requesterId,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to load your Tickets");
+  }
+
+  return response.json();
 }
