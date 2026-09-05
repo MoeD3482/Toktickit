@@ -416,7 +416,108 @@ app.get("/api/v1/tickets", async (req: Request, res: Response) => {
     });
   }
 });
+// ---------------------------------------------------------------------------
+// Lab 2 - Requester Ticket Detail
+// GET /api/v1/tickets/:id
+// ---------------------------------------------------------------------------
+app.get("/api/v1/tickets/:id", async (req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
 
+    const requesterId = req.header("X-Development-Requester-Id");
+    const ticketId = req.params.id;
+
+    if (!requesterId) {
+      return res.status(422).json({
+        error: {
+          code: "DEVELOPMENT_REQUESTER_REQUIRED",
+          message:
+            "Select a Development Requester before using this feature.",
+          fieldErrors: [],
+        },
+      });
+    }
+
+    const requester = await prisma.developmentRequester.findFirst({
+      where: {
+        id: requesterId,
+        isActive: true,
+      },
+    });
+
+    if (!requester) {
+      return res.status(422).json({
+        error: {
+          code: "DEVELOPMENT_REQUESTER_INVALID",
+          message:
+            "The selected Development Requester is not available.",
+          fieldErrors: [],
+        },
+      });
+    }
+
+    const ticket = await prisma.ticket.findFirst({
+      where: {
+        id: ticketId,
+        requesterId,
+      },
+      include: {
+        requester: true,
+        category: true,
+        relatedSystem: true,
+      },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({
+        error: {
+          code: "TICKET_NOT_FOUND",
+          message: "Ticket was not found.",
+          fieldErrors: [],
+        },
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        id: ticket.id,
+        ticketNo: ticket.ticketNo,
+
+        requester: {
+          id: ticket.requester.id,
+          displayName: ticket.requester.displayName,
+        },
+
+        category: {
+          id: ticket.category.id,
+          name: ticket.category.name,
+        },
+
+        relatedSystem: {
+          id: ticket.relatedSystem.id,
+          name: ticket.relatedSystem.name,
+        },
+
+        summary: ticket.summary,
+        description: ticket.description,
+        requestedPriority: ticket.requestedPriority,
+        status: ticket.status,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to retrieve Ticket detail:", error);
+
+    return res.status(500).json({
+      error: {
+        code: "TICKET_DETAIL_FAILED",
+        message: "Unable to load Ticket detail.",
+        fieldErrors: [],
+      },
+    });
+  }
+});
 // ---------------------------------------------------------------------------
 // Lab 2 - Create Ticket
 // POST /api/v1/tickets

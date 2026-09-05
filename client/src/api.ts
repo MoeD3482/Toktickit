@@ -264,3 +264,55 @@ export async function getMyTickets(
 
   return response.json();
 }
+export interface TicketDetail {
+  id: string;
+  ticketNo: string;
+
+  requester: {
+    id: string;
+    displayName: string;
+  };
+
+  category: {
+    id: number;
+    name: string;
+  };
+
+  relatedSystem: {
+    id: string;
+    name: string;
+  };
+
+  summary: string;
+  description: string;
+  requestedPriority: RequestedPriority;
+  status: "New";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TicketDetailResponse {
+  data: TicketDetail;
+}
+
+export async function getTicketDetail(
+  requesterId: string,
+  ticketId: string
+): Promise<TicketDetail> {
+  const response = await fetch(
+    `${API_URL}/api/v1/tickets/${ticketId}`,
+    {
+      headers: {
+        "X-Development-Requester-Id": requesterId,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to load Ticket detail");
+  }
+
+  const result: TicketDetailResponse = await response.json();
+
+  return result.data;
+}

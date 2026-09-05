@@ -13,12 +13,15 @@ import {
 
 interface MyTicketsProps {
   requester: DevelopmentRequester;
+  onSelectTicket?: (ticketId: string) => void;
 }
 
 export default function MyTickets({
   requester,
+  onSelectTicket = () => {},
 }: MyTicketsProps) {
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
+
   const [meta, setMeta] = useState<TicketListMeta>({
     page: 1,
     pageSize: 10,
@@ -32,9 +35,11 @@ export default function MyTickets({
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [relatedSystemId, setRelatedSystemId] = useState("");
+
   const [requestedPriority, setRequestedPriority] = useState<
     RequestedPriority | ""
   >("");
+
   const [status, setStatus] = useState<"New" | "">("");
 
   const [sort, setSort] = useState<
@@ -67,7 +72,9 @@ export default function MyTickets({
       setMeta(result.meta);
     } catch {
       setTickets([]);
-      setErrorMessage("Unable to load your Tickets. Please try again.");
+      setErrorMessage(
+        "Unable to load your Tickets. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -84,7 +91,7 @@ export default function MyTickets({
         setCategories(categoryData);
         setRelatedSystems(relatedSystemData);
       } catch {
-        // Ticket list can still show even if filter reference data fails.
+        // Ticket list can still show if reference data fails.
       }
     }
 
@@ -93,7 +100,6 @@ export default function MyTickets({
 
   useEffect(() => {
     loadTickets(1);
-    // requester change must reload requester-specific data
   }, [requester.id]);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
@@ -121,6 +127,7 @@ export default function MyTickets({
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h2 className="h4 mb-1">My Tickets</h2>
+
             <p className="text-muted mb-0">
               Tickets belonging to {requester.displayName}
             </p>
@@ -130,7 +137,10 @@ export default function MyTickets({
         <form onSubmit={handleSearch} className="mb-4">
           <div className="row g-3">
             <div className="col-lg-4">
-              <label htmlFor="ticketSearch" className="form-label">
+              <label
+                htmlFor="ticketSearch"
+                className="form-label"
+              >
                 Search
               </label>
 
@@ -139,12 +149,17 @@ export default function MyTickets({
                 className="form-control"
                 value={search}
                 placeholder="Ticket number, summary or description"
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
               />
             </div>
 
             <div className="col-md-6 col-lg-2">
-              <label htmlFor="ticketCategory" className="form-label">
+              <label
+                htmlFor="ticketCategory"
+                className="form-label"
+              >
                 Category
               </label>
 
@@ -152,12 +167,17 @@ export default function MyTickets({
                 id="ticketCategory"
                 className="form-select"
                 value={categoryId}
-                onChange={(event) => setCategoryId(event.target.value)}
+                onChange={(event) =>
+                  setCategoryId(event.target.value)
+                }
               >
                 <option value="">All</option>
 
                 {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
+                  <option
+                    key={category.id}
+                    value={category.id}
+                  >
                     {category.name}
                   </option>
                 ))}
@@ -165,7 +185,10 @@ export default function MyTickets({
             </div>
 
             <div className="col-md-6 col-lg-2">
-              <label htmlFor="ticketSystem" className="form-label">
+              <label
+                htmlFor="ticketSystem"
+                className="form-label"
+              >
                 Related System
               </label>
 
@@ -180,7 +203,10 @@ export default function MyTickets({
                 <option value="">All</option>
 
                 {relatedSystems.map((system) => (
-                  <option key={system.id} value={system.id}>
+                  <option
+                    key={system.id}
+                    value={system.id}
+                  >
                     {system.name}
                   </option>
                 ))}
@@ -188,7 +214,10 @@ export default function MyTickets({
             </div>
 
             <div className="col-md-6 col-lg-2">
-              <label htmlFor="ticketPriority" className="form-label">
+              <label
+                htmlFor="ticketPriority"
+                className="form-label"
+              >
                 Priority
               </label>
 
@@ -198,7 +227,9 @@ export default function MyTickets({
                 value={requestedPriority}
                 onChange={(event) =>
                   setRequestedPriority(
-                    event.target.value as RequestedPriority | ""
+                    event.target.value as
+                      | RequestedPriority
+                      | ""
                   )
                 }
               >
@@ -211,7 +242,10 @@ export default function MyTickets({
             </div>
 
             <div className="col-md-6 col-lg-2">
-              <label htmlFor="ticketStatus" className="form-label">
+              <label
+                htmlFor="ticketStatus"
+                className="form-label"
+              >
                 Status
               </label>
 
@@ -220,7 +254,9 @@ export default function MyTickets({
                 className="form-select"
                 value={status}
                 onChange={(event) =>
-                  setStatus(event.target.value as "New" | "")
+                  setStatus(
+                    event.target.value as "New" | ""
+                  )
                 }
               >
                 <option value="">All</option>
@@ -229,7 +265,10 @@ export default function MyTickets({
             </div>
 
             <div className="col-md-6 col-lg-3">
-              <label htmlFor="ticketSort" className="form-label">
+              <label
+                htmlFor="ticketSort"
+                className="form-label"
+              >
                 Sort By
               </label>
 
@@ -246,14 +285,25 @@ export default function MyTickets({
                   )
                 }
               >
-                <option value="updatedAt">Last Updated</option>
-                <option value="createdAt">Ticket Date</option>
-                <option value="ticketNo">Ticket Number</option>
+                <option value="updatedAt">
+                  Last Updated
+                </option>
+
+                <option value="createdAt">
+                  Ticket Date
+                </option>
+
+                <option value="ticketNo">
+                  Ticket Number
+                </option>
               </select>
             </div>
 
             <div className="col-md-6 col-lg-2">
-              <label htmlFor="ticketOrder" className="form-label">
+              <label
+                htmlFor="ticketOrder"
+                className="form-label"
+              >
                 Order
               </label>
 
@@ -262,11 +312,20 @@ export default function MyTickets({
                 className="form-select"
                 value={order}
                 onChange={(event) =>
-                  setOrder(event.target.value as "asc" | "desc")
+                  setOrder(
+                    event.target.value as
+                      | "asc"
+                      | "desc"
+                  )
                 }
               >
-                <option value="desc">Descending</option>
-                <option value="asc">Ascending</option>
+                <option value="desc">
+                  Descending
+                </option>
+
+                <option value="asc">
+                  Ascending
+                </option>
               </select>
             </div>
 
@@ -312,76 +371,108 @@ export default function MyTickets({
             </div>
           )}
 
-        {!loading && !errorMessage && tickets.length > 0 && (
-          <>
-            <div className="table-responsive">
-              <table className="table align-middle">
-                <thead>
-                  <tr>
-                    <th>Ticket Number</th>
-                    <th>Summary</th>
-                    <th>Category</th>
-                    <th>Related System</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Last Updated</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {tickets.map((ticket) => (
-                    <tr key={ticket.id}>
-                      <td>
-                        <strong>{ticket.ticketNo}</strong>
-                      </td>
-
-                      <td>{ticket.summary}</td>
-                      <td>{ticket.category.name}</td>
-                      <td>{ticket.relatedSystem.name}</td>
-                      <td>{ticket.requestedPriority}</td>
-                      <td>{ticket.status}</td>
-                      <td>
-                        {new Date(ticket.updatedAt).toLocaleString()}
-                      </td>
+        {!loading &&
+          !errorMessage &&
+          tickets.length > 0 && (
+            <>
+              <div className="table-responsive">
+                <table className="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>Ticket Number</th>
+                      <th>Summary</th>
+                      <th>Category</th>
+                      <th>Related System</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Last Updated</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
 
-            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
-              <div className="text-muted">
-                Page {meta.page} of {meta.totalPages} ·{" "}
-                {meta.totalItems} Ticket
-                {meta.totalItems === 1 ? "" : "s"}
+                  <tbody>
+                    {tickets.map((ticket) => (
+                      <tr key={ticket.id}>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 fw-bold text-success text-decoration-none"
+                            onClick={() =>
+                              onSelectTicket(ticket.id)
+                            }
+                          >
+                            {ticket.ticketNo}
+                          </button>
+                        </td>
+
+                        <td>{ticket.summary}</td>
+
+                        <td>
+                          {ticket.category.name}
+                        </td>
+
+                        <td>
+                          {ticket.relatedSystem.name}
+                        </td>
+
+                        <td>
+                          {ticket.requestedPriority}
+                        </td>
+
+                        <td>{ticket.status}</td>
+
+                        <td>
+                          {new Date(
+                            ticket.updatedAt
+                          ).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline-success"
-                  disabled={loading || meta.page <= 1}
-                  onClick={() => loadTickets(meta.page - 1)}
-                >
-                  Previous
-                </button>
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+                <div className="text-muted">
+                  Page {meta.page} of{" "}
+                  {meta.totalPages} ·{" "}
+                  {meta.totalItems} Ticket
+                  {meta.totalItems === 1
+                    ? ""
+                    : "s"}
+                </div>
 
-                <button
-                  type="button"
-                  className="btn btn-outline-success"
-                  disabled={
-                    loading ||
-                    meta.totalPages === 0 ||
-                    meta.page >= meta.totalPages
-                  }
-                  onClick={() => loadTickets(meta.page + 1)}
-                >
-                  Next
-                </button>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-success"
+                    disabled={
+                      loading || meta.page <= 1
+                    }
+                    onClick={() =>
+                      loadTickets(meta.page - 1)
+                    }
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-outline-success"
+                    disabled={
+                      loading ||
+                      meta.totalPages === 0 ||
+                      meta.page >= meta.totalPages
+                    }
+                    onClick={() =>
+                      loadTickets(meta.page + 1)
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
       </div>
     </div>
   );
