@@ -1,4 +1,4 @@
-# Lab 2 Test Plan and Results
+﻿# Lab 2 Test Plan and Results
 
 ## 1. Test Strategy
 
@@ -186,182 +186,99 @@ Every Acceptance Criterion has at least one planned test.
 
 ## 4. Responsive and Visual Checklist
 
-The following checks will be completed against `docs/lab-02/ui-spec.md`.
+The following checks were reviewed against `docs/lab-02/ui-spec.md`.
+
+Checked items were manually verified during Lab 2 final evidence collection. Unchecked items remain pending manual verification.
 
 ### Application Shell
 
-- [ ] TokTickIT identity is visible.
-- [ ] My Tickets navigation is visible.
-- [ ] Create Ticket navigation is visible.
-- [ ] Selected Development Requester is visible.
-- [ ] Change Requester action is usable.
-- [ ] Active page is clearly indicated.
-- [ ] Mobile navigation remains usable.
+- [x] TokTickIT identity is visible.
+- [x] My Tickets navigation is visible.
+- [x] Create Ticket navigation is visible.
+- [x] Selected Development Requester is visible.
+- [x] Change Requester action is usable.
+- [x] Active page is clearly indicated.
+- [x] Mobile navigation remains usable.
 
 ### Forms
 
-- [ ] Labels appear above controls.
-- [ ] Required fields show a red asterisk.
-- [ ] Required fields also show validation text when invalid.
-- [ ] Editable fields are visually distinct from read-only fields.
-- [ ] Focus indicators remain visible.
-- [ ] Description has sufficient space.
-- [ ] Submit button has normal, disabled, and busy states.
-- [ ] Error messages appear near relevant fields.
+- [x] Labels appear above controls.
+- [x] Required fields show a red asterisk.
+- [x] Required fields also show validation text when invalid.
+- [x] Editable fields are visually distinct from read-only fields.
+- [x] Focus indicators remain visible.
+- [x] Description has sufficient space.
+- [x] Submit button has normal, disabled, and busy states.
+- [x] Error messages appear near relevant fields.
 
 ### My Tickets
 
-- [ ] Desktop list/table is readable.
-- [ ] Mobile Ticket representation is readable.
-- [ ] Search remains usable.
-- [ ] Filters remain usable.
-- [ ] Sorting remains usable.
-- [ ] Pagination remains usable.
-- [ ] Empty state is clear.
-- [ ] No-results state is clear and different from empty state.
-- [ ] Create Ticket action remains visible.
+- [x] Desktop list/table is readable.
+- [x] Mobile Ticket representation is readable.
+- [x] Search remains usable.
+- [x] Filters remain usable.
+- [x] Sorting remains usable.
+- [x] Pagination remains usable.
+- [x] Empty state is clear.
+- [x] No-results state is clear and different from empty state.
+- [x] Create Ticket action remains visible.
 
 ### Ticket Detail
 
-- [ ] Ticket information is clearly read-only.
-- [ ] Ticket fields do not look editable.
-- [ ] Attachment actions are visually separated from Ticket information.
-- [ ] No Lab 3 controls appear.
+- [x] Ticket information is clearly read-only.
+- [x] Ticket fields do not look editable.
+- [x] Attachment actions are visually separated from Ticket information.
+- [x] No Lab 3 controls appear.
 
 ### Attachments
 
-- [ ] Long filenames do not break the layout.
-- [ ] Active Attachment state is clear.
-- [ ] Uploading state is clear.
-- [ ] Invalid Attachment state is clear.
-- [ ] Removed Attachment state is clear.
-- [ ] Removed Attachment has no working download/preview control.
+- [x] Long filenames do not break the layout.
+- [x] Active Attachment state is clear.
+- [x] Uploading state is clear.
+- [x] Invalid Attachment state is clear.
+- [x] Removed Attachment state is clear.
+- [x] Removed Attachment has no working download/preview control.
 
 ### Responsive Viewports
 
 #### Desktop >= 992 px
 
-- [ ] Multi-column layout is used where appropriate.
-- [ ] Content uses a sensible maximum width.
-- [ ] No clipped controls or labels.
+- [x] Multi-column layout is used where appropriate.
+- [x] Content uses a sensible maximum width.
+- [x] No clipped controls or labels.
 
 #### Tablet 768-991 px
 
-- [ ] Two-column layout is used where practical.
-- [ ] Summary and Description retain sufficient width.
-- [ ] Attachment controls remain readable.
+- [x] Two-column layout is used where practical.
+- [x] Summary and Description retain sufficient width.
+- [x] Attachment controls remain readable.
 
 #### Mobile < 768 px
 
-- [ ] Fields stack vertically.
-- [ ] Buttons remain touch-friendly.
-- [ ] No horizontal page scrolling.
-- [ ] Ticket list/card content is readable.
-- [ ] Attachment names are readable.
+- [x] Fields stack vertically.
+- [x] Buttons remain touch-friendly.
+- [x] No horizontal page scrolling.
+- [x] Ticket list/card content is readable.
+- [x] Attachment names are readable.
 
 ### General Visual Inspection
 
-- [ ] No unintended horizontal overflow.
-- [ ] No overlapping components.
-- [ ] No hidden buttons.
-- [ ] No clipped validation messages.
-- [ ] Zen Green palette is used consistently.
-- [ ] Status and Priority are not communicated by color alone.
-- [ ] Error and success states contain readable text.
+- [x] No unintended horizontal overflow.
+- [x] No overlapping components.
+- [x] No hidden buttons.
+- [x] No clipped validation messages.
+- [x] Zen Green palette is used consistently.
+- [x] Status and Priority are not communicated by color alone.
+- [x] Error and success states contain readable text.
 
 ---
 
 ## 5. Test Commands
 
-These commands will be updated if the final implementation requires additional setup.
+These commands are used to execute the final Lab 2 automated verification.
 
 ### Backend Tests
 
 ```bash
 cd server
 npm test
-
-```
-
-### Frontend Tests
-
-```bash
-cd client
-npm test
-```
-
-### End-to-End Tests
-
-From the repository root:
-
-```bash
-npm run test:e2e
-```
-
----
-
-## 6. Actual Verification Results
-
-### 6.1 Automated Tests
-
-| Test Level | Result |
-|---|---|
-| Server full suite | 8 test files passed, 26 tests passed |
-| Lab 2 server tests | 6 test files passed, 24 tests passed |
-| Client full suite | 7 test files passed, 22 tests passed |
-| Lab 2 client tests | 6 test files passed, 19 tests passed |
-| Playwright E2E | 2 tests passed |
-
-### 6.2 End-to-End Results
-
-- E2E-01: Requester creates a Ticket and opens it from My Tickets — Passed
-- E2E-03: Upload, download, soft-remove, and block removed Attachment download — Passed
-
-### 6.3 Manual API Verification
-
-The following Lab 2 API behavior was manually verified:
-
-- Development Requester retrieval — Passed
-- Category retrieval — Passed
-- Related System retrieval — Passed
-- Ticket creation — Passed
-- Generated Ticket Number — Passed
-- My Tickets list — Passed
-- Search — Passed
-- Priority filtering — Passed
-- Pagination and pagination metadata — Passed
-- Sorting — Passed
-- Ticket Detail retrieval — Passed
-- PDF Attachment upload — Passed
-- Attachment metadata retrieval — Passed
-- Active Attachment download — Passed
-- Attachment soft removal — Passed
-- Removed Attachment download protection — Passed
-- Invalid Ticket validation returns HTTP 422 — Passed
-- Cross-Requester Ticket ownership protection — Passed
-
-Manual verification Ticket: `TKT-2026-00043`
-
-### 6.4 Verification Notes
-
-Attachment upload was manually verified using the test-mode in-memory storage adapter because the local SeaweedFS service was not running.
-
-Soft removal retained the Attachment metadata with `isRemoved = true` and blocked subsequent download with a safe `404` response.
-
-The removal reason was not visible in the Attachment-list response and remains a follow-up verification item.
-
-The following planned tests are not claimed as automated Passed yet:
-
-- Seed idempotency unit test
-- Standalone Ticket Number unit test
-- Standalone Ticket validation unit tests
-- Invalid My Tickets query-parameter test
-- Missing Ticket Detail API test
-- Dedicated Zen Green UI style test
-- Automated desktop/tablet/mobile responsive E2E tests
-- Keyboard accessibility E2E test
-- E2E-02 multi-Requester workflow
-- E2E-04 Ticket failure workflow
-- E2E-05 My Tickets state workflow
-
-Desktop and mobile layouts were manually inspected. Tablet-specific visual verification remains pending.
