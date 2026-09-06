@@ -117,16 +117,24 @@ Thank you for the final review. I confirmed that all Lab 2 Issues, documentation
 
 ---
 
-## Pull Requests I Reviewed for My Partner
+## Pull Request I Reviewed for My Partner
 
 **Partner:** Lae Lae Kaung Nyunt  
 **GitHub:** @LaeLaeKaungNyunt
 
-This section records Pull Requests that I reviewed for my partner.
+| Pull Request | My Review Result |
+|---|---|
+| [Partner PR #20 — Lab 2 Ticket Detail and Attachment Management](https://github.com/LaeLaeKaungNyunt/toktickit/pull/20) | Approved |
 
-| Pull Request | My Review Result | My Comment | Partner Response |
-|---|---|---|---|
-| To be added after partner PR review | Pending | Pending | Pending |
+### My Review Comment
+
+Reviewed the Ticket Detail and Attachment Management implementation. Ownership isolation, attachment validation, SeaweedFS storage behavior, soft removal, audit events, responsive UI, and tests match the Lab 2 specification. All tests pass. Approved.
+
+### Partner Response
+
+Thank you for the review. I confirmed the implementation and test results.
+
+This review provided evidence of peer-review participation in both directions: I received reviews on my own Lab 2 Pull Requests and also reviewed my partner's Lab 2 implementation.
 
 ---
 
@@ -158,6 +166,8 @@ Each Issue was implemented on its own feature branch and integrated through a pe
 PRs #21, #22, #23, #24, #25, #26, and #27 were reviewed, approved, and merged into `lab2-staging`.
 
 After final integration and verification, Release PR #28 was opened from `lab2-staging` to `main`. The release Pull Request received peer approval and was merged successfully.
+
+I also reviewed and approved my partner's Lab 2 Pull Request #20 and provided review feedback through GitHub.
 
 The final `main` branch was verified after the release merge:
 
