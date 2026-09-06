@@ -96,7 +96,22 @@ Examples:
 
 ---
 
-## 6. Reflection
+## 6. Selected Key Prompts
+
+| No. | Prompt | Purpose |
+|---|---|---|
+| 1 | Review the Lab 2 handout and identify the required scope, business rules, acceptance criteria, and deliverables before implementation. | Understand the Lab 2 engineering contract. |
+| 2 | Help define the Development Requester context as a temporary testing mechanism without implementing real authentication. | Keep the implementation within Lab 2 scope. |
+| 3 | Define the Create Ticket API, validation rules, Ticket Number generation, ownership, and duplicate-submission behavior. | Design the ticket creation workflow. |
+| 4 | Design the My Tickets API and UI with requester ownership, search, filtering, sorting, pagination, empty state, and failure state. | Implement the requester-owned ticket list. |
+| 5 | Implement the Requester Ticket Detail screen with read-only ticket information and backend ownership protection. | Build the ticket detail workflow. |
+| 6 | Implement Attachment upload, metadata retrieval, download, soft removal, file validation, and ownership protection. | Complete the Attachment lifecycle. |
+| 7 | Add Playwright end-to-end tests for Create Ticket and the Attachment lifecycle and verify the final Lab 2 workflow. | Provide E2E verification. |
+| 8 | Review the final Lab 2 implementation against the specification, test plan, Zen Green UI requirements, and Definition of Done. | Perform final integration and completion verification. |
+
+---
+
+## 7. Reflection
 
 Using AI helped organize the Lab 2 requirements and made it easier to identify missing decisions before coding.
 
