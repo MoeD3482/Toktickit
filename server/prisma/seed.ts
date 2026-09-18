@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getPrisma } from "../src/prisma.js";
 
 const categories = [
@@ -45,6 +46,40 @@ const requesters = [
   },
 ];
 
+const staffUsers = [
+  {
+    displayName: "Somchai IT Staff",
+    email: "somchai.staff@example.com",
+    roles: ["ITStaff"] as const,
+    isActive: true,
+  },
+  {
+    displayName: "Kanya Service Desk",
+    email: "kanya.staff@example.com",
+    roles: ["ITStaff"] as const,
+    isActive: true,
+  },
+];
+
+const administratorUsers = [
+  {
+    displayName: "TokTickIT Administrator",
+    email: "admin@example.com",
+    roles: ["Administrator"] as const,
+    isActive: true,
+  },
+];
+
+function hashSeedPassword(password: string): string {
+  return `sha256:${createHash("sha256")
+    .update(password)
+    .digest("hex")}`;
+}
+
+const temporaryPasswordHash = hashSeedPassword(
+  "ChangeMe123!"
+);
+
 async function main() {
   const prisma = getPrisma();
 
@@ -71,17 +106,77 @@ async function main() {
   }
 
   for (const requester of requesters) {
-    await prisma.developmentRequester.upsert({
+    const developmentRequester =
+      await prisma.developmentRequester.upsert({
+        where: { email: requester.email },
+        update: {
+          displayName: requester.displayName,
+          isActive: requester.isActive,
+        },
+        create: requester,
+      });
+
+    await prisma.user.upsert({
       where: { email: requester.email },
       update: {
         displayName: requester.displayName,
+        roles: ["Requester"],
         isActive: requester.isActive,
+        passwordState: "ChangeRequired",
       },
-      create: requester,
+      create: {
+        id: developmentRequester.id,
+        displayName: requester.displayName,
+        email: requester.email,
+        passwordHash: temporaryPasswordHash,
+        roles: ["Requester"],
+        isActive: requester.isActive,
+        passwordState: "ChangeRequired",
+      },
     });
   }
 
-  console.log("Lab 2 seed data created successfully.");
+  for (const staffUser of staffUsers) {
+    await prisma.user.upsert({
+      where: { email: staffUser.email },
+      update: {
+        displayName: staffUser.displayName,
+        roles: [...staffUser.roles],
+        isActive: staffUser.isActive,
+        passwordState: "ChangeRequired",
+      },
+      create: {
+        displayName: staffUser.displayName,
+        email: staffUser.email,
+        passwordHash: temporaryPasswordHash,
+        roles: [...staffUser.roles],
+        isActive: staffUser.isActive,
+        passwordState: "ChangeRequired",
+      },
+    });
+  }
+
+  for (const administratorUser of administratorUsers) {
+    await prisma.user.upsert({
+      where: { email: administratorUser.email },
+      update: {
+        displayName: administratorUser.displayName,
+        roles: [...administratorUser.roles],
+        isActive: administratorUser.isActive,
+        passwordState: "ChangeRequired",
+      },
+      create: {
+        displayName: administratorUser.displayName,
+        email: administratorUser.email,
+        passwordHash: temporaryPasswordHash,
+        roles: [...administratorUser.roles],
+        isActive: administratorUser.isActive,
+        passwordState: "ChangeRequired",
+      },
+    });
+  }
+
+  console.log("Lab 3 seed data created successfully.");
 }
 
 main()
