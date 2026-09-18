@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { hashPassword } from "../src/auth/password.js";
 import { getPrisma } from "../src/prisma.js";
 
 const categories = [
@@ -70,18 +70,11 @@ const administratorUsers = [
   },
 ];
 
-function hashSeedPassword(password: string): string {
-  return `sha256:${createHash("sha256")
-    .update(password)
-    .digest("hex")}`;
-}
-
-const temporaryPasswordHash = hashSeedPassword(
-  "ChangeMe123!"
-);
-
 async function main() {
   const prisma = getPrisma();
+  const temporaryPasswordHash = await hashPassword(
+    "ChangeMe123!"
+  );
 
   for (const name of categories) {
     await prisma.category.upsert({
@@ -120,6 +113,7 @@ async function main() {
       where: { email: requester.email },
       update: {
         displayName: requester.displayName,
+        passwordHash: temporaryPasswordHash,
         roles: ["Requester"],
         isActive: requester.isActive,
         passwordState: "ChangeRequired",
@@ -141,6 +135,7 @@ async function main() {
       where: { email: staffUser.email },
       update: {
         displayName: staffUser.displayName,
+        passwordHash: temporaryPasswordHash,
         roles: [...staffUser.roles],
         isActive: staffUser.isActive,
         passwordState: "ChangeRequired",
@@ -161,6 +156,7 @@ async function main() {
       where: { email: administratorUser.email },
       update: {
         displayName: administratorUser.displayName,
+        passwordHash: temporaryPasswordHash,
         roles: [...administratorUser.roles],
         isActive: administratorUser.isActive,
         passwordState: "ChangeRequired",
