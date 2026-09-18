@@ -7,7 +7,10 @@ import { attachmentStorage } from "./attachments/storage.js";
 import { attachmentUploadMiddleware } from "./attachments/upload.js";
 import {
   getAuthenticatedUser,
+  hasRole,
+  requireRole,
   sendAuthenticationRequired,
+  sendForbidden,
   toSafeUser,
 } from "./auth/http.js";
 import {
@@ -29,6 +32,97 @@ app.use(
   })
 );
 app.use(express.json());
+
+async function getRequesterContext(req: Request, res: Response) {
+  const prisma = getPrisma();
+  const authenticatedUser = await getAuthenticatedUser(req);
+  const developmentRequesterId = req.header(
+    "X-Development-Requester-Id"
+  );
+
+  if (authenticatedUser) {
+    if (!hasRole(authenticatedUser, "Requester")) {
+      sendForbidden(res);
+      return null;
+    }
+
+    const requester = await prisma.developmentRequester.findUnique({
+      where: {
+        id: authenticatedUser.id,
+      },
+    });
+
+    if (!requester || !requester.isActive) {
+      res.status(403).json({
+        error: {
+          code: "REQUESTER_PROFILE_REQUIRED",
+          message: "A Requester profile is required for this feature.",
+          fieldErrors: [],
+        },
+      });
+
+      return null;
+    }
+
+    return {
+      requesterId: requester.id,
+      requesterUserId: authenticatedUser.id,
+      requester,
+      authenticatedUser,
+      mode: "lab3" as const,
+    };
+  }
+
+  if (developmentRequesterId) {
+    const requester = await prisma.developmentRequester.findFirst({
+      where: {
+        id: developmentRequesterId,
+        isActive: true,
+      },
+    });
+
+    if (!requester) {
+      res.status(422).json({
+        error: {
+          code: "DEVELOPMENT_REQUESTER_INVALID",
+          message:
+            "The selected Development Requester is not available.",
+          fieldErrors: [],
+        },
+      });
+
+      return null;
+    }
+
+    return {
+      requesterId: requester.id,
+      requesterUserId: requester.id,
+      requester,
+      authenticatedUser: null,
+      mode: "lab2" as const,
+    };
+  }
+
+  sendAuthenticationRequired(res);
+  return null;
+}
+
+function requesterTicketWhere(
+  ticketId: string,
+  context: NonNullable<
+    Awaited<ReturnType<typeof getRequesterContext>>
+  >
+): Prisma.TicketWhereInput {
+  return context.mode === "lab2"
+    ? {
+        id: ticketId,
+        requesterId: context.requesterId,
+      }
+    : {
+        id: ticketId,
+        requesterUserId: context.requesterUserId,
+      };
+}
 
 // ---------------------------------------------------------------------------
 // Lab 3 - Authentication
@@ -253,6 +347,453 @@ app.post(
 );
 
 // ---------------------------------------------------------------------------
+// Lab 3 - Staff and Administrator authorization surfaces
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/v1/staff/tickets",
+  async (req: Request, res: Response) => {
+    try {
+      const staffUser = await requireRole(
+        req,
+        res,
+        "ITStaff"
+      );
+
+      if (!staffUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const page =
+        typeof req.query.page === "string"
+          ? Number(req.query.page)
+          : 1;
+      const pageSize =
+        typeof req.query.pageSize === "string"
+          ? Number(req.query.pageSize)
+          : 10;
+
+      if (
+        !Number.isInteger(page) ||
+        page < 1 ||
+        !Number.isInteger(pageSize) ||
+        pageSize < 1 ||
+        pageSize > 50
+      ) {
+        return res.status(422).json({
+          error: {
+            code: "INVALID_PAGINATION",
+            message: "Page or page size is invalid.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const totalItems = await prisma.ticket.count();
+      const tickets = await prisma.ticket.findMany({
+        include: {
+          requester: true,
+          category: true,
+          relatedSystem: true,
+          assignedTo: true,
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+
+      return res.status(200).json({
+        data: tickets.map((ticket) => ({
+          id: ticket.id,
+          ticketNo: ticket.ticketNo,
+          requester: {
+            id: ticket.requester.id,
+            displayName: ticket.requester.displayName,
+          },
+          assignedTo: ticket.assignedTo
+            ? toSafeUser(ticket.assignedTo)
+            : null,
+          category: {
+            id: ticket.category.id,
+            name: ticket.category.name,
+          },
+          relatedSystem: {
+            id: ticket.relatedSystem.id,
+            name: ticket.relatedSystem.name,
+          },
+          summary: ticket.summary,
+          requestedPriority: ticket.requestedPriority,
+          status: ticket.status,
+          createdAt: ticket.createdAt,
+          updatedAt: ticket.updatedAt,
+        })),
+        meta: {
+          page,
+          pageSize,
+          totalItems,
+          totalPages: Math.ceil(totalItems / pageSize),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to load staff Tickets:", error);
+
+      return res.status(500).json({
+        error: {
+          code: "STAFF_TICKETS_FAILED",
+          message: "Unable to load staff Tickets.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/v1/staff/tickets/:ticketId",
+  async (req: Request, res: Response) => {
+    try {
+      const staffUser = await requireRole(
+        req,
+        res,
+        "ITStaff"
+      );
+
+      if (!staffUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const ticket = await prisma.ticket.findUnique({
+        where: {
+          id: req.params.ticketId,
+        },
+        include: {
+          requester: true,
+          category: true,
+          relatedSystem: true,
+          assignedTo: true,
+          attachments: {
+            where: {
+              isRemoved: false,
+            },
+          },
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      return res.status(200).json({
+        data: {
+          id: ticket.id,
+          ticketNo: ticket.ticketNo,
+          requester: {
+            id: ticket.requester.id,
+            displayName: ticket.requester.displayName,
+          },
+          assignedTo: ticket.assignedTo
+            ? toSafeUser(ticket.assignedTo)
+            : null,
+          category: {
+            id: ticket.category.id,
+            name: ticket.category.name,
+          },
+          relatedSystem: {
+            id: ticket.relatedSystem.id,
+            name: ticket.relatedSystem.name,
+          },
+          summary: ticket.summary,
+          description: ticket.description,
+          requestedPriority: ticket.requestedPriority,
+          status: ticket.status,
+          attachments: ticket.attachments.map((attachment) => ({
+            id: attachment.id,
+            ticketId: attachment.ticketId,
+            originalFilename: attachment.originalFilename,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            createdAt: attachment.createdAt,
+          })),
+          createdAt: ticket.createdAt,
+          updatedAt: ticket.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to load staff Ticket:", error);
+
+      return res.status(500).json({
+        error: {
+          code: "STAFF_TICKET_FAILED",
+          message: "Unable to load staff Ticket.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/v1/staff/tickets/:ticketId/internal-notes",
+  async (req: Request, res: Response) => {
+    try {
+      const staffUser = await requireRole(
+        req,
+        res,
+        "ITStaff"
+      );
+
+      if (!staffUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const ticket = await prisma.ticket.findUnique({
+        where: {
+          id: req.params.ticketId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!ticket) {
+        return res.status(404).json({
+          error: {
+            code: "TICKET_NOT_FOUND",
+            message: "Ticket not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const body =
+        typeof req.body?.body === "string"
+          ? req.body.body.trim()
+          : "";
+
+      if (body.length < 1 || body.length > 2000) {
+        return res.status(422).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "One or more Internal Note fields are invalid.",
+            fieldErrors: [
+              {
+                field: "body",
+                message:
+                  "Internal Note body must contain between 1 and 2000 characters.",
+              },
+            ],
+          },
+        });
+      }
+
+      return res.status(201).json({
+        data: {
+          ticketId: ticket.id,
+          body,
+          visibility: "Internal",
+          createdBy: toSafeUser(staffUser),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to create Internal Note:", error);
+
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_NOTE_FAILED",
+          message: "Unable to create Internal Note.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+
+app.get("/api/v1/admin/users", async (req: Request, res: Response) => {
+  try {
+    const adminUser = await requireRole(
+      req,
+      res,
+      "Administrator"
+    );
+
+    if (!adminUser) {
+      return;
+    }
+
+    const prisma = getPrisma();
+    const page =
+      typeof req.query.page === "string"
+        ? Number(req.query.page)
+        : 1;
+    const pageSize =
+      typeof req.query.pageSize === "string"
+        ? Number(req.query.pageSize)
+        : 10;
+
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      !Number.isInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > 50
+    ) {
+      return res.status(422).json({
+        error: {
+          code: "INVALID_PAGINATION",
+          message: "Page or page size is invalid.",
+          fieldErrors: [],
+        },
+      });
+    }
+
+    const totalItems = await prisma.user.count();
+    const users = await prisma.user.findMany({
+      orderBy: {
+        displayName: "asc",
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return res.status(200).json({
+      data: users.map((user) => toSafeUser(user)),
+      meta: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages: Math.ceil(totalItems / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load admin Users:", error);
+
+    return res.status(500).json({
+      error: {
+        code: "ADMIN_USERS_FAILED",
+        message: "Unable to load Users.",
+        fieldErrors: [],
+      },
+    });
+  }
+});
+
+app.get(
+  "/api/v1/admin/users/:userId",
+  async (req: Request, res: Response) => {
+    try {
+      const adminUser = await requireRole(
+        req,
+        res,
+        "Administrator"
+      );
+
+      if (!adminUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const user = await prisma.user.findUnique({
+        where: {
+          id: req.params.userId,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          error: {
+            code: "USER_NOT_FOUND",
+            message: "User not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      return res.status(200).json({
+        data: toSafeUser(user),
+      });
+    } catch (error) {
+      console.error("Failed to load admin User:", error);
+
+      return res.status(500).json({
+        error: {
+          code: "ADMIN_USER_FAILED",
+          message: "Unable to load User.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+
+function sendAdminManagementNotImplemented(res: Response) {
+  return res.status(501).json({
+    error: {
+      code: "NOT_IMPLEMENTED",
+      message: "Administrator user management is not implemented yet.",
+      fieldErrors: [],
+    },
+  });
+}
+
+app.post("/api/v1/admin/users", async (req: Request, res: Response) => {
+  const adminUser = await requireRole(
+    req,
+    res,
+    "Administrator"
+  );
+
+  if (!adminUser) {
+    return;
+  }
+
+  return sendAdminManagementNotImplemented(res);
+});
+
+app.patch(
+  "/api/v1/admin/users/:userId",
+  async (req: Request, res: Response) => {
+    const adminUser = await requireRole(
+      req,
+      res,
+      "Administrator"
+    );
+
+    if (!adminUser) {
+      return;
+    }
+
+    return sendAdminManagementNotImplemented(res);
+  }
+);
+
+app.patch(
+  "/api/v1/admin/users/:userId/password",
+  async (req: Request, res: Response) => {
+    const adminUser = await requireRole(
+      req,
+      res,
+      "Administrator"
+    );
+
+    if (!adminUser) {
+      return;
+    }
+
+    return sendAdminManagementNotImplemented(res);
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Lab 1 - API health check
 // GET /api/health
 // ---------------------------------------------------------------------------
@@ -422,36 +963,10 @@ app.get(
 app.get("/api/v1/tickets", async (req: Request, res: Response) => {
   try {
     const prisma = getPrisma();
+    const requesterContext = await getRequesterContext(req, res);
 
-    const requesterId = req.header("X-Development-Requester-Id");
-
-    if (!requesterId) {
-      return res.status(422).json({
-        error: {
-          code: "DEVELOPMENT_REQUESTER_REQUIRED",
-          message:
-            "Select a Development Requester before using this feature.",
-          fieldErrors: [],
-        },
-      });
-    }
-
-    const requester = await prisma.developmentRequester.findFirst({
-      where: {
-        id: requesterId,
-        isActive: true,
-      },
-    });
-
-    if (!requester) {
-      return res.status(422).json({
-        error: {
-          code: "DEVELOPMENT_REQUESTER_INVALID",
-          message:
-            "The selected Development Requester is not available.",
-          fieldErrors: [],
-        },
-      });
+    if (!requesterContext) {
+      return;
     }
 
     // Search
@@ -518,7 +1033,13 @@ app.get("/api/v1/tickets", async (req: Request, res: Response) => {
     }
 
     const where: Prisma.TicketWhereInput = {
-      requesterId,
+      ...(requesterContext.mode === "lab2"
+        ? {
+            requesterId: requesterContext.requesterId,
+          }
+        : {
+            requesterUserId: requesterContext.requesterUserId,
+          }),
 
       ...(search
         ? {
@@ -670,48 +1191,16 @@ app.post(
   async (req: Request, res: Response) => {
     try {
       const prisma = getPrisma();
+      const requesterContext = await getRequesterContext(req, res);
 
-      const requesterId = req.header(
-        "X-Development-Requester-Id"
-      );
-
-      if (!requesterId) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_REQUIRED",
-            message:
-              "Select a Development Requester before using this feature.",
-            fieldErrors: [],
-          },
-        });
-      }
-
-      const requester =
-        await prisma.developmentRequester.findFirst({
-          where: {
-            id: requesterId,
-            isActive: true,
-          },
-        });
-
-      if (!requester) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_INVALID",
-            message:
-              "The selected Development Requester is not available.",
-            fieldErrors: [],
-          },
-        });
+      if (!requesterContext) {
+        return;
       }
 
       const ticketId = req.params.ticketId;
 
       const ticket = await prisma.ticket.findFirst({
-        where: {
-          id: ticketId,
-          requesterId,
-        },
+        where: requesterTicketWhere(ticketId, requesterContext),
       });
 
       if (!ticket) {
@@ -772,7 +1261,9 @@ app.post(
               mimeType: req.file.mimetype,
               sizeBytes: req.file.size,
               uploadedByRequesterId:
-                requesterId,
+                requesterContext.requesterId,
+              uploadedByUserId:
+                requesterContext.requesterUserId,
             },
           });
 
@@ -821,48 +1312,16 @@ app.get(
   async (req: Request, res: Response) => {
     try {
       const prisma = getPrisma();
+      const requesterContext = await getRequesterContext(req, res);
 
-      const requesterId = req.header(
-        "X-Development-Requester-Id"
-      );
-
-      if (!requesterId) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_REQUIRED",
-            message:
-              "Select a Development Requester before using this feature.",
-            fieldErrors: [],
-          },
-        });
-      }
-
-      const requester =
-        await prisma.developmentRequester.findFirst({
-          where: {
-            id: requesterId,
-            isActive: true,
-          },
-        });
-
-      if (!requester) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_INVALID",
-            message:
-              "The selected Development Requester is not available.",
-            fieldErrors: [],
-          },
-        });
+      if (!requesterContext) {
+        return;
       }
 
       const ticketId = req.params.ticketId;
 
       const ticket = await prisma.ticket.findFirst({
-        where: {
-          id: ticketId,
-          requesterId,
-        },
+        where: requesterTicketWhere(ticketId, requesterContext),
       });
 
       if (!ticket) {
@@ -926,48 +1385,16 @@ app.get(
   async (req: Request, res: Response) => {
     try {
       const prisma = getPrisma();
+      const requesterContext = await getRequesterContext(req, res);
 
-      const requesterId = req.header(
-        "X-Development-Requester-Id"
-      );
-
-      if (!requesterId) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_REQUIRED",
-            message:
-              "Select a Development Requester before using this feature.",
-            fieldErrors: [],
-          },
-        });
-      }
-
-      const requester =
-        await prisma.developmentRequester.findFirst({
-          where: {
-            id: requesterId,
-            isActive: true,
-          },
-        });
-
-      if (!requester) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_INVALID",
-            message:
-              "The selected Development Requester is not available.",
-            fieldErrors: [],
-          },
-        });
+      if (!requesterContext) {
+        return;
       }
 
       const { ticketId, attachmentId } = req.params;
 
       const ticket = await prisma.ticket.findFirst({
-        where: {
-          id: ticketId,
-          requesterId,
-        },
+        where: requesterTicketWhere(ticketId, requesterContext),
       });
 
       if (!ticket) {
@@ -1056,39 +1483,10 @@ app.delete(
   async (req: Request, res: Response) => {
     try {
       const prisma = getPrisma();
+      const requesterContext = await getRequesterContext(req, res);
 
-      const requesterId = req.header(
-        "X-Development-Requester-Id"
-      );
-
-      if (!requesterId) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_REQUIRED",
-            message:
-              "Select a Development Requester before using this feature.",
-            fieldErrors: [],
-          },
-        });
-      }
-
-      const requester =
-        await prisma.developmentRequester.findFirst({
-          where: {
-            id: requesterId,
-            isActive: true,
-          },
-        });
-
-      if (!requester) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_INVALID",
-            message:
-              "The selected Development Requester is not available.",
-            fieldErrors: [],
-          },
-        });
+      if (!requesterContext) {
+        return;
       }
 
       const confirmed = req.body?.confirmed;
@@ -1122,10 +1520,7 @@ app.delete(
       const { ticketId, attachmentId } = req.params;
 
       const ticket = await prisma.ticket.findFirst({
-        where: {
-          id: ticketId,
-          requesterId,
-        },
+        where: requesterTicketWhere(ticketId, requesterContext),
       });
 
       if (!ticket) {
@@ -1143,7 +1538,13 @@ app.delete(
           where: {
             id: attachmentId,
             ticketId,
-            uploadedByRequesterId: requesterId,
+            ...(requesterContext.mode === "lab2"
+              ? {
+                  uploadedByRequesterId: requesterContext.requesterId,
+                }
+              : {
+                  uploadedByUserId: requesterContext.requesterUserId,
+                }),
             isRemoved: false,
           },
         });
@@ -1166,7 +1567,8 @@ app.delete(
           data: {
             isRemoved: true,
             removedAt: new Date(),
-            removedByRequesterId: requesterId,
+            removedByRequesterId: requesterContext.requesterId,
+            removedByUserId: requesterContext.requesterUserId,
             removalReason: reason,
           },
         });
@@ -1226,45 +1628,20 @@ app.get(
     try {
       const prisma = getPrisma();
 
-      const requesterId = req.header(
-        "X-Development-Requester-Id"
+      const requesterContext = await getRequesterContext(
+        req,
+        res
       );
 
-      if (!requesterId) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_REQUIRED",
-            message:
-              "Select a Development Requester before using this feature.",
-            fieldErrors: [],
-          },
-        });
-      }
-
-      const requester =
-        await prisma.developmentRequester.findFirst({
-          where: {
-            id: requesterId,
-            isActive: true,
-          },
-        });
-
-      if (!requester) {
-        return res.status(422).json({
-          error: {
-            code: "DEVELOPMENT_REQUESTER_INVALID",
-            message:
-              "The selected Development Requester is not available.",
-            fieldErrors: [],
-          },
-        });
+      if (!requesterContext) {
+        return;
       }
 
       const ticket = await prisma.ticket.findFirst({
-        where: {
-          id: req.params.id,
-          requesterId,
-        },
+        where: requesterTicketWhere(
+          req.params.id,
+          requesterContext
+        ),
         include: {
           requester: true,
           category: true,
@@ -1335,17 +1712,10 @@ app.post("/api/v1/tickets", async (req: Request, res: Response) => {
   try {
     const prisma = getPrisma();
 
-    const requesterId = req.header("X-Development-Requester-Id");
+    const requesterContext = await getRequesterContext(req, res);
 
-    if (!requesterId) {
-      return res.status(422).json({
-        error: {
-          code: "DEVELOPMENT_REQUESTER_REQUIRED",
-          message:
-            "Select a Development Requester before using this feature.",
-          fieldErrors: [],
-        },
-      });
+    if (!requesterContext) {
+      return;
     }
 
     const {
@@ -1443,25 +1813,6 @@ app.post("/api/v1/tickets", async (req: Request, res: Response) => {
       });
     }
 
-    const requester =
-      await prisma.developmentRequester.findFirst({
-        where: {
-          id: requesterId,
-          isActive: true,
-        },
-      });
-
-    if (!requester) {
-      return res.status(422).json({
-        error: {
-          code: "DEVELOPMENT_REQUESTER_INVALID",
-          message:
-            "The selected Development Requester is not available.",
-          fieldErrors: [],
-        },
-      });
-    }
-
     const category = await prisma.category.findFirst({
       where: {
         id: categoryId,
@@ -1522,7 +1873,14 @@ app.post("/api/v1/tickets", async (req: Request, res: Response) => {
       });
 
     if (existingTicket) {
-      if (existingTicket.requesterId !== requesterId) {
+      const existingTicketBelongsToRequester =
+        requesterContext.mode === "lab2"
+          ? existingTicket.requesterId ===
+            requesterContext.requesterId
+          : existingTicket.requesterUserId ===
+            requesterContext.requesterUserId;
+
+      if (!existingTicketBelongsToRequester) {
         return res.status(409).json({
           error: {
             code: "CLIENT_REQUEST_ID_CONFLICT",
@@ -1594,7 +1952,8 @@ app.post("/api/v1/tickets", async (req: Request, res: Response) => {
         return tx.ticket.create({
           data: {
             ticketNo,
-            requesterId,
+            requesterId: requesterContext.requesterId,
+            requesterUserId: requesterContext.requesterUserId,
             categoryId,
             relatedSystemId,
             summary: trimmedSummary,
