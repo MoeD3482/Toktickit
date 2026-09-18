@@ -18,6 +18,18 @@ enum TicketStatus {
   New
 }
 
+enum UserRole {
+  Requester
+  ITStaff
+  Administrator
+}
+
+enum PasswordState {
+  InitialPassword
+  ChangeRequired
+  Active
+}
+
 model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
@@ -38,6 +50,23 @@ model DevelopmentRequester {
   tickets Ticket[]
 }
 
+model User {
+  id            String        @id @default(uuid())
+  displayName   String
+  email         String        @unique
+  passwordHash  String
+  roles         UserRole[]    @default([Requester])
+  isActive      Boolean       @default(true)
+  passwordState PasswordState @default(InitialPassword)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  requestedTickets    Ticket[]     @relation("TicketRequesterUser")
+  assignedTickets     Ticket[]     @relation("TicketAssignedStaffUser")
+  uploadedAttachments Attachment[] @relation("AttachmentUploadedByUser")
+  removedAttachments  Attachment[] @relation("AttachmentRemovedByUser")
+}
+
 model RelatedSystem {
   id        String   @id @default(uuid())
   name      String   @unique
@@ -52,6 +81,8 @@ model Ticket {
   id                String            @id @default(uuid())
   ticketNo          String            @unique
   requesterId       String
+  requesterUserId   String?
+  assignedToUserId  String?
   categoryId        Int
   relatedSystemId   String
   summary           String
@@ -63,15 +94,20 @@ model Ticket {
   updatedAt         DateTime          @updatedAt
 
   requester     DevelopmentRequester @relation(fields: [requesterId], references: [id])
+  requesterUser User?                @relation("TicketRequesterUser", fields: [requesterUserId], references: [id])
+  assignedTo    User?                @relation("TicketAssignedStaffUser", fields: [assignedToUserId], references: [id])
   category      Category             @relation(fields: [categoryId], references: [id])
   relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id])
 
   attachments Attachment[]
 
   @@index([requesterId])
+  @@index([requesterUserId])
+  @@index([assignedToUserId])
   @@index([categoryId])
   @@index([relatedSystemId])
   @@index([requesterId, updatedAt])
+  @@index([requesterUserId, updatedAt])
 }
 
 model Attachment {
@@ -82,17 +118,23 @@ model Attachment {
   mimeType              String
   sizeBytes             Int
   uploadedByRequesterId String
+  uploadedByUserId      String?
   isRemoved             Boolean   @default(false)
   removedAt             DateTime?
   removedByRequesterId  String?
+  removedByUserId       String?
   removalReason         String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket         Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedByUser User?  @relation("AttachmentUploadedByUser", fields: [uploadedByUserId], references: [id])
+  removedByUser  User?  @relation("AttachmentRemovedByUser", fields: [removedByUserId], references: [id])
 
   @@index([ticketId])
   @@index([ticketId, isRemoved])
+  @@index([uploadedByUserId])
+  @@index([removedByUserId])
 }
 
 model TicketNumberSequence {
