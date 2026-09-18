@@ -9,31 +9,24 @@ describe("Development Requester context", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows the selected Requester and allows changing Requester", async () => {
-    vi.spyOn(api, "getDevelopmentRequesters").mockResolvedValue([
-      {
-        id: "requester-1",
-        displayName: "Anan Chaiyasit",
-        email: "anan.chaiyasit@example.com",
-      },
-    ]);
+  it("shows the authenticated Requester and allows signing out", async () => {
+    vi.spyOn(api, "getCurrentUser").mockResolvedValue({
+      id: "requester-1",
+      displayName: "Anan Chaiyasit",
+      email: "anan.chaiyasit@example.com",
+      roles: ["Requester"],
+      isActive: true,
+      passwordState: "Active",
+    });
+
+    vi.spyOn(api, "logout").mockResolvedValue();
 
     const user = userEvent.setup();
 
     render(<App />);
 
-    const dropdown = await screen.findByLabelText(
-      "Development Requester"
-    );
-
-    await user.selectOptions(dropdown, "requester-1");
-
-    await user.click(
-      screen.getByRole("button", { name: "Continue" })
-    );
-
     expect(
-      screen.getByText(/Requester:/)
+      await screen.findByText(/Current user:/)
     ).toBeInTheDocument();
 
     expect(
@@ -41,11 +34,11 @@ describe("Development Requester context", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Change Requester" })
+      screen.getByRole("button", { name: "Sign Out" })
     );
 
     expect(
-      await screen.findByText("Development Requester Selection")
+      await screen.findByText("Sign in to continue")
     ).toBeInTheDocument();
   });
 });

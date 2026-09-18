@@ -5,11 +5,252 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { attachmentStorage } from "./attachments/storage.js";
 import { attachmentUploadMiddleware } from "./attachments/upload.js";
+import {
+  getAuthenticatedUser,
+  sendAuthenticationRequired,
+  toSafeUser,
+} from "./auth/http.js";
+import {
+  hashPassword,
+  validatePassword,
+  verifyPassword,
+} from "./auth/password.js";
+import {
+  createSession,
+  destroySession,
+} from "./auth/session.js";
 
 export const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 app.use(express.json());
+
+// ---------------------------------------------------------------------------
+// Lab 3 - Authentication
+// ---------------------------------------------------------------------------
+app.post("/api/v1/auth/login", async (req: Request, res: Response) => {
+  try {
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof req.body?.password === "string" ? req.body.password : "";
+
+    const fieldErrors: {
+      field: string;
+      message: string;
+    }[] = [];
+
+    if (!email) {
+      fieldErrors.push({
+        field: "email",
+        message: "Email is required.",
+      });
+    }
+
+    if (!password) {
+      fieldErrors.push({
+        field: "password",
+        message: "Password is required.",
+      });
+    }
+
+    if (fieldErrors.length > 0) {
+      return res.status(422).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Email and password are required.",
+          fieldErrors,
+        },
+      });
+    }
+
+    const prisma = getPrisma();
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    const validPassword =
+      user && user.isActive
+        ? await verifyPassword(password, user.passwordHash)
+        : false;
+
+    if (!user || !user.isActive || !validPassword) {
+      return res.status(401).json({
+        error: {
+          code: "INVALID_CREDENTIALS",
+          message: "Email or password is incorrect.",
+          fieldErrors: [],
+        },
+      });
+    }
+
+    createSession(res, user.id);
+
+    return res.status(200).json({
+      data: {
+        user: toSafeUser(user),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to sign in:", error);
+
+    return res.status(500).json({
+      error: {
+        code: "AUTHENTICATION_FAILED",
+        message: "Unable to sign in. Please try again.",
+        fieldErrors: [],
+      },
+    });
+  }
+});
+
+app.post("/api/v1/auth/logout", async (req: Request, res: Response) => {
+  const user = await getAuthenticatedUser(req);
+
+  if (!user) {
+    return sendAuthenticationRequired(res);
+  }
+
+  destroySession(req, res);
+
+  return res.status(204).send();
+});
+
+app.get("/api/v1/auth/me", async (req: Request, res: Response) => {
+  const user = await getAuthenticatedUser(req);
+
+  if (!user) {
+    return sendAuthenticationRequired(res);
+  }
+
+  return res.status(200).json({
+    data: {
+      user: toSafeUser(user),
+    },
+  });
+});
+
+app.post(
+  "/api/v1/auth/change-password",
+  async (req: Request, res: Response) => {
+    try {
+      const user = await getAuthenticatedUser(req);
+
+      if (!user) {
+        return sendAuthenticationRequired(res);
+      }
+
+      const currentPassword =
+        typeof req.body?.currentPassword === "string"
+          ? req.body.currentPassword
+          : "";
+      const newPassword =
+        typeof req.body?.newPassword === "string"
+          ? req.body.newPassword
+          : "";
+      const confirmPassword =
+        typeof req.body?.confirmPassword === "string"
+          ? req.body.confirmPassword
+          : "";
+
+      const fieldErrors: {
+        field: string;
+        message: string;
+      }[] = [];
+
+      if (!currentPassword) {
+        fieldErrors.push({
+          field: "currentPassword",
+          message: "Current password is required.",
+        });
+      }
+
+      if (!newPassword) {
+        fieldErrors.push({
+          field: "newPassword",
+          message: "New password is required.",
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        fieldErrors.push({
+          field: "confirmPassword",
+          message: "Password confirmation must match.",
+        });
+      }
+
+      for (const message of validatePassword(newPassword)) {
+        fieldErrors.push({
+          field: "newPassword",
+          message,
+        });
+      }
+
+      if (fieldErrors.length > 0) {
+        return res.status(422).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "One or more password fields are invalid.",
+            fieldErrors,
+          },
+        });
+      }
+
+      const currentPasswordIsValid = await verifyPassword(
+        currentPassword,
+        user.passwordHash
+      );
+
+      if (!currentPasswordIsValid) {
+        return res.status(401).json({
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "Current password is incorrect.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const prisma = getPrisma();
+
+      const updatedUser = await prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          passwordHash: await hashPassword(newPassword),
+          passwordState: "Active",
+        },
+      });
+
+      return res.status(200).json({
+        data: {
+          user: toSafeUser(updatedUser),
+        },
+      });
+    } catch (error) {
+      console.error("Failed to change password:", error);
+
+      return res.status(500).json({
+        error: {
+          code: "PASSWORD_CHANGE_FAILED",
+          message: "Unable to change password. Please try again.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Lab 1 - API health check

@@ -1,6 +1,120 @@
 const API_URL =
   import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+export type UserRole =
+  | "Requester"
+  | "ITStaff"
+  | "Administrator";
+
+export type PasswordState =
+  | "InitialPassword"
+  | "ChangeRequired"
+  | "Active";
+
+export interface AuthenticatedUser {
+  id: string;
+  displayName: string;
+  email: string;
+  roles: UserRole[];
+  isActive: boolean;
+  passwordState: PasswordState;
+}
+
+interface AuthResponse {
+  data: {
+    user: AuthenticatedUser;
+  };
+}
+
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthenticatedUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/auth/login`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Email or password is incorrect.");
+  }
+
+  const result: AuthResponse = await response.json();
+
+  return result.data.user;
+}
+
+export async function getCurrentUser(): Promise<AuthenticatedUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/auth/me`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Authentication required.");
+  }
+
+  const result: AuthResponse = await response.json();
+
+  return result.data.user;
+}
+
+export async function logout(): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/api/v1/auth/logout`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to sign out.");
+  }
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+): Promise<AuthenticatedUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/auth/change-password`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to change password.");
+  }
+
+  const result: AuthResponse = await response.json();
+
+  return result.data.user;
+}
+
 export interface Category {
   id: number;
   name: string;

@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
@@ -9,56 +8,58 @@ describe("App", () => {
     vi.restoreAllMocks();
   });
 
-  // WORKED EXAMPLE — provided for you.
-  it("renders the TokTickIT heading", () => {
+  it("renders the TokTickIT login heading when no session exists", async () => {
+    vi.spyOn(api, "getCurrentUser").mockRejectedValue(
+      new Error("Authentication required")
+    );
+
     render(<App />);
-    expect(screen.getByText(/TokTickIT/i)).toBeInTheDocument();
+
+    expect(await screen.findByText(/TokTickIT/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Sign in to continue")
+    ).toBeInTheDocument();
   });
 
-  it("shows Online and the seeded categories on success", async () => {
-    vi.spyOn(api, "checkSystem").mockResolvedValue({
-      online: true,
-      categories: [
-        { id: 1, name: "Account and Access" },
-        { id: 2, name: "Hardware" },
-        { id: 3, name: "Software" },
-        { id: 4, name: "Network" },
-      ],
+  it("shows the authenticated requester shell when a session exists", async () => {
+    vi.spyOn(api, "getCurrentUser").mockResolvedValue({
+      id: "requester-1",
+      displayName: "Anan Chaiyasit",
+      email: "anan.chaiyasit@example.com",
+      roles: ["Requester"],
+      isActive: true,
+      passwordState: "Active",
     });
 
-    const user = userEvent.setup();
-
     render(<App />);
-
-    await user.click(
-      screen.getByRole("button", { name: /check system/i })
-    );
-
-    expect(await screen.findByText("Online")).toBeInTheDocument();
-
-    expect(screen.getByText("Account and Access")).toBeInTheDocument();
-    expect(screen.getByText("Hardware")).toBeInTheDocument();
-    expect(screen.getByText("Software")).toBeInTheDocument();
-    expect(screen.getByText("Network")).toBeInTheDocument();
-  });
-
-  it("shows an Offline error message when the API is unavailable", async () => {
-    vi.spyOn(api, "checkSystem").mockRejectedValue(
-      new Error("Unable to connect to TokTickIT API")
-    );
-
-    const user = userEvent.setup();
-
-    render(<App />);
-
-    await user.click(
-      screen.getByRole("button", { name: /check system/i })
-    );
-
-    expect(await screen.findByText("Offline")).toBeInTheDocument();
 
     expect(
-      screen.getByText("Unable to connect to TokTickIT API")
+      await screen.findByText("Anan Chaiyasit")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sign Out" })
+    ).toBeInTheDocument();
+  });
+
+  it("shows the change-password screen when required", async () => {
+    vi.spyOn(api, "getCurrentUser").mockResolvedValue({
+      id: "requester-1",
+      displayName: "Anan Chaiyasit",
+      email: "anan.chaiyasit@example.com",
+      roles: ["Requester"],
+      isActive: true,
+      passwordState: "ChangeRequired",
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Change Password",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/change your temporary password/i)
     ).toBeInTheDocument();
   });
 });
