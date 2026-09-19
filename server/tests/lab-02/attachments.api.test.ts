@@ -3,8 +3,59 @@ import request from "supertest";
 import { randomUUID } from "crypto";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { clearSessionsForTests } from "../../src/auth/session.js";
 
 const createdClientRequestIds: string[] = [];
+const TEST_PASSWORD = "ChangeMe123!";
+
+async function loginAsRequester(email: string) {
+  const agent = request.agent(app);
+
+  const response = await agent
+    .post("/api/v1/auth/login")
+    .send({
+      email,
+      password: TEST_PASSWORD,
+    });
+
+  expect(response.status).toBe(200);
+
+  return agent;
+}
+
+async function createTestTicket(
+  requesterId: string,
+  summary: string,
+  description: string,
+) {
+  const prisma = getPrisma();
+
+  const category = await prisma.category.findFirstOrThrow({
+    where: { isActive: true },
+  });
+
+  const relatedSystem = await prisma.relatedSystem.findFirstOrThrow({
+    where: { isActive: true },
+  });
+
+  const clientRequestId = randomUUID();
+  createdClientRequestIds.push(clientRequestId);
+
+  return prisma.ticket.create({
+    data: {
+      ticketNo: `TEST-ATTACH-${randomUUID()}`,
+      requesterId,
+      requesterUserId: requesterId,
+      categoryId: category.id,
+      relatedSystemId: relatedSystem.id,
+      summary,
+      description,
+      requestedPriority: "Medium",
+      status: "New",
+      clientRequestId,
+    },
+  });
+}
 
 describe("POST /api/v1/tickets/:id/attachments", () => {
   afterEach(async () => {
@@ -21,6 +72,8 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
       createdClientRequestIds.length = 0;
     }
+
+    clearSessionsForTests();
   });
 
   it("allows the Ticket owner to upload a permitted PDF attachment", async () => {
@@ -31,46 +84,20 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
         where: { isActive: true },
       });
 
-    const category = await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const ticket = await createTestTicket(
+      requester.id,
+      "Attachment test Ticket",
+      "Testing attachment upload for this Ticket.",
+    );
 
-    const relatedSystem =
-      await prisma.relatedSystem.findFirstOrThrow({
-        where: { isActive: true },
-      });
+    const agent = await loginAsRequester(requester.email);
 
-    const clientRequestId = randomUUID();
-    createdClientRequestIds.push(clientRequestId);
-
-    const ticket = await prisma.ticket.create({
-      data: {
-        ticketNo: `TEST-ATTACH-${randomUUID()}`,
-        requesterId: requester.id,
-        categoryId: category.id,
-        relatedSystemId: relatedSystem.id,
-        summary: "Attachment test Ticket",
-        description: "Testing attachment upload for this Ticket.",
-        requestedPriority: "Medium",
-        status: "New",
-        clientRequestId,
-      },
-    });
-
-    const response = await request(app)
+    const response = await agent
       .post(`/api/v1/tickets/${ticket.id}/attachments`)
-      .set(
-        "X-Development-Requester-Id",
-        requester.id
-      )
-      .attach(
-        "file",
-        Buffer.from("%PDF-1.4 test attachment"),
-        {
-          filename: "evidence.pdf",
-          contentType: "application/pdf",
-        }
-      );
+      .attach("file", Buffer.from("%PDF-1.4 test attachment"), {
+        filename: "evidence.pdf",
+        contentType: "application/pdf",
+      });
 
     expect(response.status).toBe(201);
 
@@ -80,594 +107,405 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
         originalFilename: "evidence.pdf",
         mimeType: "application/pdf",
         isRemoved: false,
-      })
+      }),
     );
   });
+
   it("rejects an unsupported attachment type", async () => {
-  const prisma = getPrisma();
+    const prisma = getPrisma();
 
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const requester =
+      await prisma.developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
 
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const ticket = await createTestTicket(
+      requester.id,
+      "Invalid attachment test",
+      "Testing unsupported attachment type.",
+    );
 
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const agent = await loginAsRequester(requester.email);
 
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach("file", Buffer.from("not allowed"), {
+        filename: "malware.txt",
+        contentType: "text/plain",
+      });
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Invalid attachment test",
-      description: "Testing unsupported attachment type.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
+    expect(response.status).toBe(422);
   });
 
-  const response = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach("file", Buffer.from("not allowed"), {
-      filename: "malware.txt",
-      contentType: "text/plain",
-    });
+  it("rejects an Attachment larger than 5 MB", async () => {
+    const requester =
+      await getPrisma().developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
 
-  expect(response.status).toBe(422);
-});
-it("rejects an Attachment larger than 5 MB", async () => {
-  const prisma = getPrisma();
+    const ticket = await createTestTicket(
+      requester.id,
+      "Oversized attachment test",
+      "Testing the 5 MB Attachment size limit.",
+    );
 
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const oversizedFile = Buffer.alloc(
+      5 * 1024 * 1024 + 1,
+      "a",
+    );
 
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const agent = await loginAsRequester(requester.email);
 
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach("file", oversizedFile, {
+        filename: "large.pdf",
+        contentType: "application/pdf",
+      });
 
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Oversized attachment test",
-      description: "Testing the 5 MB Attachment size limit.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe(
+      "ATTACHMENT_TOO_LARGE",
+    );
   });
 
-  const oversizedFile = Buffer.alloc(
-    5 * 1024 * 1024 + 1,
-    "a"
-  );
+  it("rejects a sixth active Attachment", async () => {
+    const prisma = getPrisma();
 
-  const response = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach("file", oversizedFile, {
-      filename: "large.pdf",
-      contentType: "application/pdf",
-    });
+    const requester =
+      await prisma.developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
 
-  expect(response.status).toBe(422);
-  expect(response.body.error.code).toBe(
-    "ATTACHMENT_TOO_LARGE"
-  );
-});
-it("rejects a sixth active Attachment", async () => {
-  const prisma = getPrisma();
+    const ticket = await createTestTicket(
+      requester.id,
+      "Attachment limit test",
+      "Testing maximum active Attachments.",
+    );
 
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    for (let i = 1; i <= 5; i++) {
+      await prisma.attachment.create({
+        data: {
+          ticketId: ticket.id,
+          originalFilename: `file-${i}.pdf`,
+          storageKey: randomUUID(),
+          mimeType: "application/pdf",
+          sizeBytes: 100,
+          uploadedByRequesterId: requester.id,
+          uploadedByUserId: requester.id,
+        },
+      });
+    }
 
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const agent = await loginAsRequester(requester.email);
 
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Attachment limit test",
-      description: "Testing maximum active Attachments.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
-  });
-
-  for (let i = 1; i <= 5; i++) {
-    await prisma.attachment.create({
-      data: {
-        ticketId: ticket.id,
-        originalFilename: `file-${i}.pdf`,
-        storageKey: randomUUID(),
-        mimeType: "application/pdf",
-        sizeBytes: 100,
-        uploadedByRequesterId: requester.id,
-      },
-    });
-  }
-
-  const response = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach(
-      "file",
-      Buffer.from("%PDF-1.4 sixth file"),
-      {
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach("file", Buffer.from("%PDF-1.4 sixth file"), {
         filename: "sixth.pdf",
         contentType: "application/pdf",
-      }
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe(
+      "ATTACHMENT_LIMIT_REACHED",
+    );
+  });
+
+  it("returns Attachment metadata for the Ticket owner", async () => {
+    const prisma = getPrisma();
+
+    const requester =
+      await prisma.developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
+
+    const ticket = await createTestTicket(
+      requester.id,
+      "Attachment metadata test",
+      "Testing Attachment metadata retrieval.",
     );
 
-  expect(response.status).toBe(422);
-  expect(response.body.error.code).toBe(
-    "ATTACHMENT_LIMIT_REACHED"
-  );
-});
-it("returns Attachment metadata for the Ticket owner", async () => {
-  const prisma = getPrisma();
-
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Attachment metadata test",
-      description: "Testing Attachment metadata retrieval.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
-  });
-
-  const attachment = await prisma.attachment.create({
-    data: {
-      ticketId: ticket.id,
-      originalFilename: "evidence.pdf",
-      storageKey: randomUUID(),
-      mimeType: "application/pdf",
-      sizeBytes: 1234,
-      uploadedByRequesterId: requester.id,
-    },
-  });
-
-  const response = await request(app)
-    .get(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id);
-
-  expect(response.status).toBe(200);
-
-  expect(response.body.data).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        id: attachment.id,
+    const attachment = await prisma.attachment.create({
+      data: {
         ticketId: ticket.id,
         originalFilename: "evidence.pdf",
+        storageKey: randomUUID(),
         mimeType: "application/pdf",
         sizeBytes: 1234,
-        isRemoved: false,
-      }),
-    ])
-  );
-});
-it("downloads an active Attachment owned by the Requester", async () => {
-  const prisma = getPrisma();
-
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Attachment download test",
-      description: "Testing active Attachment download.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
-  });
-
-  const fileContent = Buffer.from("%PDF-1.4 downloadable attachment");
-
-  const uploadResponse = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach("file", fileContent, {
-      filename: "download-test.pdf",
-      contentType: "application/pdf",
-    });
-
-  expect(uploadResponse.status).toBe(201);
-
-  const attachmentId = uploadResponse.body.data.id;
-
-  const response = await request(app)
-    .get(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`
-    )
-    .set("X-Development-Requester-Id", requester.id);
-
-  expect(response.status).toBe(200);
-  expect(response.headers["content-type"]).toContain(
-    "application/pdf"
-  );
-  expect(response.headers["content-disposition"]).toContain(
-    "attachment"
-  );
-});
-it("soft-removes an Attachment and retains its metadata", async () => {
-  const prisma = getPrisma();
-
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Attachment removal test",
-      description: "Testing Attachment soft removal.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
-  });
-
-  const uploadResponse = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach(
-      "file",
-      Buffer.from("%PDF-1.4 removable attachment"),
-      {
-        filename: "remove-me.pdf",
-        contentType: "application/pdf",
-      }
-    );
-
-  expect(uploadResponse.status).toBe(201);
-
-  const attachmentId = uploadResponse.body.data.id;
-
-  const response = await request(app)
-    .delete(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`
-    )
-    .set("X-Development-Requester-Id", requester.id)
-    .send({
-      confirmed: true,
-      reason: "Attachment is no longer needed.",
-    });
-
-  expect(response.status).toBe(200);
-
-  expect(response.body.data).toEqual(
-    expect.objectContaining({
-      id: attachmentId,
-      isRemoved: true,
-      removalReason: "Attachment is no longer needed.",
-    })
-  );
-
-  const savedAttachment =
-    await prisma.attachment.findUnique({
-      where: {
-        id: attachmentId,
+        uploadedByRequesterId: requester.id,
+        uploadedByUserId: requester.id,
       },
     });
 
-  expect(savedAttachment).not.toBeNull();
-  expect(savedAttachment?.isRemoved).toBe(true);
-  expect(savedAttachment?.removedAt).not.toBeNull();
-});
-it("does not allow downloading a soft-removed Attachment", async () => {
-  const prisma = getPrisma();
+    const agent = await loginAsRequester(requester.email);
 
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    const response = await agent.get(
+      `/api/v1/tickets/${ticket.id}/attachments`,
+    );
 
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
+    expect(response.status).toBe(200);
 
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Removed Attachment download test",
-      description:
-        "Testing that removed Attachments cannot be downloaded.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
+    expect(response.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: attachment.id,
+          ticketId: ticket.id,
+          originalFilename: "evidence.pdf",
+          mimeType: "application/pdf",
+          sizeBytes: 1234,
+          isRemoved: false,
+        }),
+      ]),
+    );
   });
 
-  const uploadResponse = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach(
-      "file",
-      Buffer.from("%PDF-1.4 removed attachment"),
-      {
-        filename: "removed.pdf",
-        contentType: "application/pdf",
-      }
+  it("downloads an active Attachment owned by the Requester", async () => {
+    const requester =
+      await getPrisma().developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
+
+    const ticket = await createTestTicket(
+      requester.id,
+      "Attachment download test",
+      "Testing active Attachment download.",
     );
 
-  expect(uploadResponse.status).toBe(201);
+    const agent = await loginAsRequester(requester.email);
 
-  const attachmentId = uploadResponse.body.data.id;
+    const uploadResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach(
+        "file",
+        Buffer.from("%PDF-1.4 downloadable attachment"),
+        {
+          filename: "download-test.pdf",
+          contentType: "application/pdf",
+        },
+      );
 
-  const removeResponse = await request(app)
-    .delete(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`
-    )
-    .set("X-Development-Requester-Id", requester.id)
-    .send({
-      confirmed: true,
-      reason: "No longer required.",
-    });
+    expect(uploadResponse.status).toBe(201);
 
-  expect(removeResponse.status).toBe(200);
+    const attachmentId = uploadResponse.body.data.id;
 
-  const downloadResponse = await request(app)
-    .get(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`
-    )
-    .set("X-Development-Requester-Id", requester.id);
+    const response = await agent.get(
+      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`,
+    );
 
-  expect(downloadResponse.status).toBe(404);
-  expect(downloadResponse.body.error.code).toBe(
-    "ATTACHMENT_NOT_FOUND"
-  );
-});
-it("rejects cross-Requester access to another Requester's Attachment", async () => {
-  const prisma = getPrisma();
-
-  const requesters =
-    await prisma.developmentRequester.findMany({
-      where: { isActive: true },
-      take: 2,
-    });
-
-  expect(requesters.length).toBeGreaterThanOrEqual(2);
-
-  const owner = requesters[0];
-  const otherRequester = requesters[1];
-
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: owner.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Attachment ownership test",
-      description:
-        "Testing cross-Requester Attachment access.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain(
+      "application/pdf",
+    );
+    expect(response.headers["content-disposition"]).toContain(
+      "attachment",
+    );
   });
 
-  const uploadResponse = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", owner.id)
-    .attach(
-      "file",
-      Buffer.from("%PDF-1.4 private attachment"),
-      {
-        filename: "private.pdf",
-        contentType: "application/pdf",
-      }
+  it("soft-removes an Attachment and retains its metadata", async () => {
+    const prisma = getPrisma();
+
+    const requester =
+      await prisma.developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
+
+    const ticket = await createTestTicket(
+      requester.id,
+      "Attachment removal test",
+      "Testing Attachment soft removal.",
     );
 
-  expect(uploadResponse.status).toBe(201);
+    const agent = await loginAsRequester(requester.email);
 
-  const attachmentId = uploadResponse.body.data.id;
+    const uploadResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach(
+        "file",
+        Buffer.from("%PDF-1.4 removable attachment"),
+        {
+          filename: "remove-me.pdf",
+          contentType: "application/pdf",
+        },
+      );
 
-  const response = await request(app)
-    .get(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`
-    )
-    .set(
-      "X-Development-Requester-Id",
-      otherRequester.id
+    expect(uploadResponse.status).toBe(201);
+
+    const attachmentId = uploadResponse.body.data.id;
+
+    const response = await agent
+      .delete(
+        `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`,
+      )
+      .send({
+        confirmed: true,
+        reason: "Attachment is no longer needed.",
+      });
+
+    expect(response.status).toBe(200);
+
+    expect(response.body.data).toEqual(
+      expect.objectContaining({
+        id: attachmentId,
+        isRemoved: true,
+        removalReason: "Attachment is no longer needed.",
+      }),
     );
 
-  expect(response.status).toBe(404);
-  expect(response.body.error.code).toBe(
-    "TICKET_NOT_FOUND"
-  );
-});
-it("rejects Attachment removal when the reason is missing", async () => {
-  const prisma = getPrisma();
+    const savedAttachment =
+      await prisma.attachment.findUnique({
+        where: {
+          id: attachmentId,
+        },
+      });
 
-  const requester =
-    await prisma.developmentRequester.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const category =
-    await prisma.category.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const relatedSystem =
-    await prisma.relatedSystem.findFirstOrThrow({
-      where: { isActive: true },
-    });
-
-  const clientRequestId = randomUUID();
-  createdClientRequestIds.push(clientRequestId);
-
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketNo: `TEST-ATTACH-${randomUUID()}`,
-      requesterId: requester.id,
-      categoryId: category.id,
-      relatedSystemId: relatedSystem.id,
-      summary: "Missing removal reason test",
-      description:
-        "Testing Attachment removal without a reason.",
-      requestedPriority: "Medium",
-      status: "New",
-      clientRequestId,
-    },
+    expect(savedAttachment).not.toBeNull();
+    expect(savedAttachment?.isRemoved).toBe(true);
+    expect(savedAttachment?.removedAt).not.toBeNull();
   });
 
-  const uploadResponse = await request(app)
-    .post(`/api/v1/tickets/${ticket.id}/attachments`)
-    .set("X-Development-Requester-Id", requester.id)
-    .attach(
-      "file",
-      Buffer.from("%PDF-1.4 removal reason test"),
-      {
-        filename: "reason-test.pdf",
-        contentType: "application/pdf",
-      }
+  it("does not allow downloading a soft-removed Attachment", async () => {
+    const requester =
+      await getPrisma().developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
+
+    const ticket = await createTestTicket(
+      requester.id,
+      "Removed Attachment download test",
+      "Testing that removed Attachments cannot be downloaded.",
     );
 
-  expect(uploadResponse.status).toBe(201);
+    const agent = await loginAsRequester(requester.email);
 
-  const attachmentId = uploadResponse.body.data.id;
+    const uploadResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach(
+        "file",
+        Buffer.from("%PDF-1.4 removed attachment"),
+        {
+          filename: "removed.pdf",
+          contentType: "application/pdf",
+        },
+      );
 
-  const response = await request(app)
-    .delete(
-      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`
-    )
-    .set("X-Development-Requester-Id", requester.id)
-    .send({
-      confirmed: true,
-      reason: "",
-    });
+    expect(uploadResponse.status).toBe(201);
 
-  expect(response.status).toBe(422);
-  expect(response.body.error.code).toBe(
-    "ATTACHMENT_REMOVAL_REASON_REQUIRED"
-  );
-});
+    const attachmentId = uploadResponse.body.data.id;
+
+    const removeResponse = await agent
+      .delete(
+        `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`,
+      )
+      .send({
+        confirmed: true,
+        reason: "No longer required.",
+      });
+
+    expect(removeResponse.status).toBe(200);
+
+    const downloadResponse = await agent.get(
+      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`,
+    );
+
+    expect(downloadResponse.status).toBe(404);
+    expect(downloadResponse.body.error.code).toBe(
+      "ATTACHMENT_NOT_FOUND",
+    );
+  });
+
+  it("rejects cross-Requester access to another Requester's Attachment", async () => {
+    const prisma = getPrisma();
+
+    const requesters =
+      await prisma.developmentRequester.findMany({
+        where: { isActive: true },
+        take: 2,
+      });
+
+    expect(requesters.length).toBeGreaterThanOrEqual(2);
+
+    const owner = requesters[0];
+    const otherRequester = requesters[1];
+
+    const ticket = await createTestTicket(
+      owner.id,
+      "Attachment ownership test",
+      "Testing cross-Requester Attachment access.",
+    );
+
+    const ownerAgent = await loginAsRequester(owner.email);
+
+    const uploadResponse = await ownerAgent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach(
+        "file",
+        Buffer.from("%PDF-1.4 private attachment"),
+        {
+          filename: "private.pdf",
+          contentType: "application/pdf",
+        },
+      );
+
+    expect(uploadResponse.status).toBe(201);
+
+    const attachmentId = uploadResponse.body.data.id;
+
+    const otherAgent = await loginAsRequester(
+      otherRequester.email,
+    );
+
+    const response = await otherAgent.get(
+      `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}/download`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe(
+      "TICKET_NOT_FOUND",
+    );
+  });
+
+  it("rejects Attachment removal when the reason is missing", async () => {
+    const requester =
+      await getPrisma().developmentRequester.findFirstOrThrow({
+        where: { isActive: true },
+      });
+
+    const ticket = await createTestTicket(
+      requester.id,
+      "Missing removal reason test",
+      "Testing Attachment removal without a reason.",
+    );
+
+    const agent = await loginAsRequester(requester.email);
+
+    const uploadResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/attachments`)
+      .attach(
+        "file",
+        Buffer.from("%PDF-1.4 removal reason test"),
+        {
+          filename: "reason-test.pdf",
+          contentType: "application/pdf",
+        },
+      );
+
+    expect(uploadResponse.status).toBe(201);
+
+    const attachmentId = uploadResponse.body.data.id;
+
+    const response = await agent
+      .delete(
+        `/api/v1/tickets/${ticket.id}/attachments/${attachmentId}`,
+      )
+      .send({
+        confirmed: true,
+        reason: "",
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe(
+      "ATTACHMENT_REMOVAL_REASON_REQUIRED",
+    );
+  });
 });
