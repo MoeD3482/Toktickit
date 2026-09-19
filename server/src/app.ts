@@ -58,14 +58,16 @@ async function requireRole(
   }
 
   if (!hasUserRole(user, role)) {
-    return res.status(403).json({
+    res.status(403).json({
       error: {
         code: "FORBIDDEN",
         message:
-          "You do not have permission to use this feature.",
+          "You are not allowed to use this feature.",
         fieldErrors: [],
       },
     });
+
+    return null;
   }
 
   return user;
@@ -97,7 +99,7 @@ async function getRequesterContext(
       error: {
         code: "FORBIDDEN",
         message:
-          "You do not have permission to use this feature.",
+          "You are not allowed to use this feature.",
         fieldErrors: [],
       },
     });
@@ -1902,6 +1904,10 @@ app.get(
         "Failed to download Attachment:",
         error
       );
+
+      if (res.headersSent) {
+        return;
+      }
 
       return res.status(500).json({
         error: {
