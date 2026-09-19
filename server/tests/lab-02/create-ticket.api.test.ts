@@ -1,11 +1,33 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import request from "supertest";
 import { randomUUID } from "crypto";
 import { app } from "../../src/app.js";
 import { getPrisma } from "../../src/prisma.js";
+import { clearSessionsForTests } from "../../src/auth/session.js";
+
+const TEST_PASSWORD = "ChangeMe123!";
+
+async function loginAsRequester(email: string) {
+  const agent = request.agent(app);
+
+  const response = await agent
+    .post("/api/v1/auth/login")
+    .send({
+      email,
+      password: TEST_PASSWORD,
+    });
+
+  expect(response.status).toBe(200);
+
+  return agent;
+}
 
 describe("POST /api/v1/tickets", () => {
-  it("creates a valid Ticket for the selected Requester", async () => {
+  afterEach(() => {
+    clearSessionsForTests();
+  });
+
+  it("creates a valid Ticket for the authenticated Requester", async () => {
     const prisma = getPrisma();
 
     const requester = await prisma.developmentRequester.findFirst({
@@ -24,11 +46,11 @@ describe("POST /api/v1/tickets", () => {
     expect(category).not.toBeNull();
     expect(relatedSystem).not.toBeNull();
 
+    const agent = await loginAsRequester(requester!.email);
     const clientRequestId = randomUUID();
 
-    const res = await request(app)
+    const res = await agent
       .post("/api/v1/tickets")
-      .set("X-Development-Requester-Id", requester!.id)
       .send({
         categoryId: category!.id,
         relatedSystemId: relatedSystem!.id,
@@ -51,23 +73,32 @@ describe("POST /api/v1/tickets", () => {
       "Unable to connect to campus VPN"
     );
 
+    const savedTicket = await prisma.ticket.findUnique({
+      where: {
+        clientRequestId,
+      },
+    });
+
+    expect(savedTicket?.requesterUserId).toBe(
+      requester!.id
+    );
+
     await prisma.ticket.deleteMany({
       where: { clientRequestId },
     });
   });
 
   it("rejects invalid Ticket data", async () => {
-    const prisma = getPrisma();
-
-    const requester = await prisma.developmentRequester.findFirst({
+    const requester = await getPrisma().developmentRequester.findFirst({
       where: { isActive: true },
     });
 
     expect(requester).not.toBeNull();
 
-    const res = await request(app)
+    const agent = await loginAsRequester(requester!.email);
+
+    const res = await agent
       .post("/api/v1/tickets")
-      .set("X-Development-Requester-Id", requester!.id)
       .send({
         summary: "a",
         description: "short",
@@ -80,13 +111,15 @@ describe("POST /api/v1/tickets", () => {
 
     expect(
       res.body.error.fieldErrors.some(
-        (error: { field: string }) => error.field === "summary"
+        (error: { field: string }) =>
+          error.field === "summary"
       )
     ).toBe(true);
 
     expect(
       res.body.error.fieldErrors.some(
-        (error: { field: string }) => error.field === "description"
+        (error: { field: string }) =>
+          error.field === "description"
       )
     ).toBe(true);
 
@@ -117,6 +150,7 @@ describe("POST /api/v1/tickets", () => {
     expect(category).not.toBeNull();
     expect(relatedSystem).not.toBeNull();
 
+    const agent = await loginAsRequester(requester!.email);
     const clientRequestId = randomUUID();
 
     const payload = {
@@ -129,14 +163,12 @@ describe("POST /api/v1/tickets", () => {
       clientRequestId,
     };
 
-    const firstResponse = await request(app)
+    const firstResponse = await agent
       .post("/api/v1/tickets")
-      .set("X-Development-Requester-Id", requester!.id)
       .send(payload);
 
-    const secondResponse = await request(app)
+    const secondResponse = await agent
       .post("/api/v1/tickets")
-      .set("X-Development-Requester-Id", requester!.id)
       .send(payload);
 
     expect(firstResponse.status).toBe(201);
@@ -160,56 +192,65 @@ describe("POST /api/v1/tickets", () => {
       where: { clientRequestId },
     });
   });
+
   it("does not expose a Ticket when another Requester reuses the same clientRequestId", async () => {
-  const prisma = getPrisma();
+    const prisma = getPrisma();
 
-  const requesters = await prisma.developmentRequester.findMany({
-    where: { isActive: true },
-    take: 2,
+    const requesters =
+      await prisma.developmentRequester.findMany({
+        where: { isActive: true },
+        take: 2,
+      });
+
+    const category = await prisma.category.findFirst({
+      where: { isActive: true },
+    });
+
+    const relatedSystem =
+      await prisma.relatedSystem.findFirst({
+        where: { isActive: true },
+      });
+
+    expect(requesters).toHaveLength(2);
+    expect(category).not.toBeNull();
+    expect(relatedSystem).not.toBeNull();
+
+    const firstAgent = await loginAsRequester(
+      requesters[0].email
+    );
+
+    const secondAgent = await loginAsRequester(
+      requesters[1].email
+    );
+
+    const clientRequestId = randomUUID();
+
+    const payload = {
+      categoryId: category!.id,
+      relatedSystemId: relatedSystem!.id,
+      summary: "Unable to connect to campus VPN",
+      description:
+        "The VPN client fails to connect from my laptop while using campus Wi-Fi.",
+      requestedPriority: "High",
+      clientRequestId,
+    };
+
+    const firstResponse = await firstAgent
+      .post("/api/v1/tickets")
+      .send(payload);
+
+    const secondResponse = await secondAgent
+      .post("/api/v1/tickets")
+      .send(payload);
+
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.body.error.code).toBe(
+      "CLIENT_REQUEST_ID_CONFLICT"
+    );
+
+    await prisma.ticket.deleteMany({
+      where: { clientRequestId },
+    });
   });
-
-  const category = await prisma.category.findFirst({
-    where: { isActive: true },
-  });
-
-  const relatedSystem = await prisma.relatedSystem.findFirst({
-    where: { isActive: true },
-  });
-
-  expect(requesters).toHaveLength(2);
-  expect(category).not.toBeNull();
-  expect(relatedSystem).not.toBeNull();
-
-  const clientRequestId = randomUUID();
-
-  const payload = {
-    categoryId: category!.id,
-    relatedSystemId: relatedSystem!.id,
-    summary: "Unable to connect to campus VPN",
-    description:
-      "The VPN client fails to connect from my laptop while using campus Wi-Fi.",
-    requestedPriority: "High",
-    clientRequestId,
-  };
-
-  const firstResponse = await request(app)
-    .post("/api/v1/tickets")
-    .set("X-Development-Requester-Id", requesters[0].id)
-    .send(payload);
-
-  const secondResponse = await request(app)
-    .post("/api/v1/tickets")
-    .set("X-Development-Requester-Id", requesters[1].id)
-    .send(payload);
-
-  expect(firstResponse.status).toBe(201);
-  expect(secondResponse.status).toBe(409);
-  expect(secondResponse.body.error.code).toBe(
-    "CLIENT_REQUEST_ID_CONFLICT"
-  );
-
-  await prisma.ticket.deleteMany({
-    where: { clientRequestId },
-  });
-});
 });
