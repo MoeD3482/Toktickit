@@ -257,6 +257,7 @@ Returns only Tickets owned by the authenticated Requester.
 Query parameters:
 
 - `search`
+- `requester` (Requester display name or email)
 - `categoryId`
 - `relatedSystemId`
 - `requestedPriority`
@@ -265,6 +266,8 @@ Query parameters:
 - `order`
 - `page`
 - `pageSize`
+
+Use `assignedToUserId=unassigned` to show unassigned Tickets. Queue parameters are validated and return `422 VALIDATION_ERROR` with field errors when invalid.
 
 Success response: `200`
 
@@ -354,7 +357,7 @@ Success response:
       },
       "requestedPriority": "High",
       "itPriority": "High",
-      "status": "In Progress",
+      "status": "InProgress",
       "assignedTo": {
         "id": "usr_staff",
         "displayName": "IT Staff User"
@@ -377,6 +380,20 @@ Success response:
 Protected endpoint. Roles: IT Staff, Administrator when authorized for staff operations.
 
 Returns staff Ticket Detail including requester information, assignment, IT Priority, status history, public comments, internal notes, Actions Taken, and Attachment metadata.
+
+The persisted API status values are `New`, `InProgress`, `WaitingForRequester`, `Resolved`, `Closed`, `Reopened`, and `Cancelled`. The UI presents the corresponding human-readable labels.
+
+### GET /api/v1/staff/assignees
+
+Protected endpoint. Roles: IT Staff.
+
+Returns active IT Staff users for queue filtering and assignment controls. Password and other credential data are never returned.
+
+### POST /api/v1/staff/tickets/:ticketId/claim
+
+Protected endpoint. Roles: IT Staff.
+
+Claims an unassigned Ticket for the authenticated IT Staff user. If another staff member has already claimed the Ticket, the endpoint returns `409 TICKET_ALREADY_ASSIGNED`.
 
 ### PATCH /api/v1/staff/tickets/:ticketId/assignment
 
@@ -422,7 +439,7 @@ Request:
 
 ```json
 {
-  "status": "In Progress",
+  "status": "InProgress",
   "reason": "Started investigation."
 }
 ```

@@ -61,14 +61,14 @@ No Acceptance Criterion is considered complete without planned test evidence.
 |---|---|---|---|---|---|
 | API-STAFF-01 | API | FR-17, AC-14 | Staff queue access | IT Staff can retrieve Tickets across Requesters | `server/tests/lab-03/staff-tickets.api.test.ts` |
 | API-STAFF-02 | API | FR-18, AC-15 | Queue query behavior | Search, filters, sorting, pagination follow contract | `server/tests/lab-03/staff-tickets.api.test.ts` |
-| API-STAFF-03 | API | FR-19, AC-16 | Staff Ticket Detail | Staff detail returns staff fields and histories | `server/tests/lab-03/staff-ticket-detail.api.test.ts` |
-| API-STAFF-04 | API | FR-20, AC-17 | Assignment | Assignment to active IT Staff is saved and recorded | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
+| API-STAFF-03 | API | FR-19, AC-16 | Staff Ticket Detail | Staff detail returns staff fields and histories | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
+| API-STAFF-04 | API | FR-20, AC-17 | Claim and assignment | Claim and assignment to active IT Staff are saved and recorded | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | API-STAFF-05 | API | BR-18, AC-17 | Invalid assignment | Assignment to inactive or non-staff user is rejected | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | API-STAFF-06 | API | FR-21, AC-18 | IT Priority | IT Priority updates separately from Requested Priority | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | API-STAFF-07 | API | FR-22, AC-19 | Valid status transition | Status updates and actor/timestamp are recorded | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | API-STAFF-08 | API | BR-22, AC-20 | Invalid status transition | Invalid transition is rejected safely | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
-| API-STAFF-09 | API | FR-23, AC-21 | Public comments | Authorized public comment is saved and visible | `server/tests/lab-03/comments.api.test.ts` |
-| API-STAFF-10 | API | FR-24, AC-22 | Internal notes | Internal note is hidden from Requester | `server/tests/lab-03/internal-notes.api.test.ts` |
+| API-STAFF-09 | API | FR-23, AC-21 | Public comments | Authorized public comment is saved and visible | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
+| API-STAFF-10 | API | FR-24, AC-22 | Internal notes | Internal note is hidden from Requester | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | API-STAFF-11 | API | FR-25, AC-23 | Actions Taken | Action is saved with actor and timestamp | `server/tests/lab-03/staff-ticket-actions.api.test.ts` |
 | UI-STAFF-01 | UI | AC-14, AC-15 | Staff queue UI | Queue renders filters, results, pagination, states | `client/tests/lab-03/StaffQueue.test.tsx` |
 | UI-STAFF-02 | UI | AC-16 | Staff detail UI | Staff controls appear for IT Staff | `client/tests/lab-03/StaffTicketDetail.test.tsx` |
