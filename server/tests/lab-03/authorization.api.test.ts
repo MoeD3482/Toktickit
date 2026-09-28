@@ -24,6 +24,36 @@ async function cleanupAuthorizationFixtures() {
 
   const prisma = getPrisma();
 
+  await prisma.ticketAction.deleteMany({
+    where: {
+      ticket: {
+        ticketNo: {
+          startsWith: testTicketPrefix,
+        },
+      },
+    },
+  });
+
+  await prisma.ticketComment.deleteMany({
+    where: {
+      ticket: {
+        ticketNo: {
+          startsWith: testTicketPrefix,
+        },
+      },
+    },
+  });
+
+  await prisma.internalNote.deleteMany({
+    where: {
+      ticket: {
+        ticketNo: {
+          startsWith: testTicketPrefix,
+        },
+      },
+    },
+  });
+
   await prisma.attachment.deleteMany({
     where: {
       ticket: {

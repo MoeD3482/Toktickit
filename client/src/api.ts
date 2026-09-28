@@ -291,9 +291,8 @@ export async function createTicket(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Development-Requester-Id":
-          requesterId,
       },
+      credentials: "include",
       body: JSON.stringify(input),
     }
   );
@@ -434,10 +433,7 @@ export async function getMyTickets(
         : ""
     }`,
     {
-      headers: {
-        "X-Development-Requester-Id":
-          requesterId,
-      },
+      credentials: "include",
     }
   );
 
@@ -491,10 +487,7 @@ export async function getTicketDetail(
   const response = await fetch(
     `${API_URL}/api/v1/tickets/${ticketId}`,
     {
-      headers: {
-        "X-Development-Requester-Id":
-          requesterId,
-      },
+      credentials: "include",
     }
   );
 
@@ -541,10 +534,7 @@ export async function getTicketAttachments(
   const response = await fetch(
     `${API_URL}/api/v1/tickets/${ticketId}/attachments`,
     {
-      headers: {
-        "X-Development-Requester-Id":
-          requesterId,
-      },
+      credentials: "include",
     }
   );
 
@@ -576,10 +566,7 @@ export async function uploadTicketAttachment(
     `${API_URL}/api/v1/tickets/${ticketId}/attachments`,
     {
       method: "POST",
-      headers: {
-        "X-Development-Requester-Id":
-          requesterId,
-      },
+      credentials: "include",
       body: formData,
     }
   );
@@ -608,9 +595,8 @@ export async function removeTicketAttachment(
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
-        "X-Development-Requester-Id":
-          requesterId,
       },
+      credentials: "include",
       body: JSON.stringify({
         confirmed: true,
         reason,
@@ -638,16 +624,356 @@ export async function downloadTicketAttachment(
   const response = await fetch(
     `${API_URL}/api/v1/tickets/${ticketId}/attachments/${attachmentId}/download`,
     {
-      headers: {
-        "X-Development-Requester-Id":
-          requesterId,
-      },
+      credentials: "include",
     }
   );
 
   if (!response.ok) {
     throw new Error(
       "Unable to download Attachment"
+    );
+  }
+
+  return response.blob();
+}
+
+/* =========================================================
+   Lab 3 - IT Staff ticket management
+   ========================================================= */
+
+export type ITPriority = RequestedPriority;
+
+export type TicketStatus =
+  | "New"
+  | "InProgress"
+  | "WaitingForRequester"
+  | "Resolved"
+  | "Closed"
+  | "Reopened"
+  | "Cancelled";
+
+export interface StaffActor {
+  id: string;
+  displayName: string;
+}
+
+export interface StaffTicketComment {
+  id: string;
+  ticketId: string;
+  body: string;
+  visibility: "Public" | "Internal";
+  author: StaffActor;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffTicketAction {
+  id: string;
+  ticketId: string;
+  actionType: string;
+  body: string;
+  actor: StaffActor;
+  createdAt: string;
+}
+
+export interface StaffTicketAttachment {
+  id: string;
+  ticketId: string;
+  originalFilename: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface StaffTicketListItem {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  requester: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
+  category: Category;
+  relatedSystem: RelatedSystem;
+  requestedPriority: RequestedPriority;
+  itPriority: ITPriority | null;
+  status: TicketStatus;
+  assignedTo: StaffActor | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffTicketDetail
+  extends StaffTicketListItem {
+  description: string;
+  attachments: StaffTicketAttachment[];
+  comments: StaffTicketComment[];
+  internalNotes: StaffTicketComment[];
+  actions: StaffTicketAction[];
+}
+
+export interface StaffTicketMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface StaffTicketQuery {
+  search?: string;
+  requester?: string;
+  categoryId?: number;
+  relatedSystemId?: string;
+  requestedPriority?: RequestedPriority;
+  itPriority?: ITPriority;
+  status?: TicketStatus;
+  assignedToUserId?: string;
+  requesterUserId?: string;
+  sort?:
+    | "ticketNo"
+    | "createdAt"
+    | "updatedAt"
+    | "requestedPriority"
+    | "itPriority"
+    | "status";
+  order?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface StaffAssignee extends StaffActor {}
+
+export class ApiRequestError extends Error {
+  status: number;
+  fieldErrors: { field: string; message: string }[];
+
+  constructor(
+    status: number,
+    message: string,
+    fieldErrors: { field: string; message: string }[] = []
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+  }
+}
+
+async function getApiError(
+  response: Response,
+  fallbackMessage: string
+) {
+  const result = await response.json().catch(() => null);
+  const error = result?.error;
+
+  return new ApiRequestError(
+    response.status,
+    typeof error?.message === "string"
+      ? error.message
+      : fallbackMessage,
+    Array.isArray(error?.fieldErrors)
+      ? error.fieldErrors
+      : []
+  );
+}
+
+async function staffRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  fallbackMessage: string
+): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw await getApiError(response, fallbackMessage);
+  }
+
+  const result: { data: T } = await response.json();
+  return result.data;
+}
+
+function staffQueryString(query: StaffTicketQuery) {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+
+export async function getStaffTickets(
+  query: StaffTicketQuery = {}
+): Promise<{
+  data: StaffTicketListItem[];
+  meta: StaffTicketMeta;
+}> {
+  const response = await fetch(
+    `${API_URL}/api/v1/staff/tickets${staffQueryString(query)}`,
+    { credentials: "include" }
+  );
+
+  if (!response.ok) {
+    throw await getApiError(
+      response,
+      "Unable to load the staff queue."
+    );
+  }
+
+  return response.json();
+}
+
+export function getStaffAssignees(): Promise<StaffAssignee[]> {
+  return staffRequest(
+    "/api/v1/staff/assignees",
+    {},
+    "Unable to load staff assignees."
+  );
+}
+
+export function getStaffTicketDetail(
+  ticketId: string
+): Promise<StaffTicketDetail> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}`,
+    {},
+    "Unable to load Ticket detail."
+  );
+}
+
+export function claimStaffTicket(
+  ticketId: string
+): Promise<{
+  id: string;
+  assignedTo: StaffActor | null;
+}> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/claim`,
+    { method: "POST" },
+    "Unable to claim Ticket."
+  );
+}
+
+export function updateStaffAssignment(
+  ticketId: string,
+  assignedToUserId: string
+): Promise<{
+  id: string;
+  assignedTo: StaffActor | null;
+}> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/assignment`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignedToUserId }),
+    },
+    "Unable to update Ticket assignment."
+  );
+}
+
+export function updateStaffITPriority(
+  ticketId: string,
+  itPriority: ITPriority
+): Promise<{
+  id: string;
+  itPriority: ITPriority;
+}> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/it-priority`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itPriority }),
+    },
+    "Unable to update IT Priority."
+  );
+}
+
+export function updateStaffStatus(
+  ticketId: string,
+  status: TicketStatus,
+  reason: string
+): Promise<{
+  id: string;
+  status: TicketStatus;
+}> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/status`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, reason }),
+    },
+    "Unable to update Ticket status."
+  );
+}
+
+export function addStaffAction(
+  ticketId: string,
+  body: string
+): Promise<StaffTicketAction> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/actions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+    "Unable to save the action."
+  );
+}
+
+export function addStaffInternalNote(
+  ticketId: string,
+  body: string
+): Promise<StaffTicketComment> {
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/internal-notes`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+    "Unable to save the internal note."
+  );
+}
+
+export function addPublicComment(
+  ticketId: string,
+  body: string
+): Promise<StaffTicketComment> {
+  return staffRequest(
+    `/api/v1/tickets/${ticketId}/comments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+    "Unable to save the public comment."
+  );
+}
+
+export async function downloadStaffTicketAttachment(
+  ticketId: string,
+  attachmentId: string
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_URL}/api/v1/staff/tickets/${ticketId}/attachments/${attachmentId}/download`,
+    { credentials: "include" }
+  );
+
+  if (!response.ok) {
+    throw await getApiError(
+      response,
+      "Unable to download Attachment."
     );
   }
 
