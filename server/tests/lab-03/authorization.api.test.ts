@@ -454,7 +454,8 @@ describe.sequential("Lab 3 authorization API", () => {
     expect(detailResponse.status).toBe(200);
     expect(detailResponse.body.data.id).toBe(requester.id);
     expect(detailResponse.body.data.passwordHash).toBeUndefined();
-    expect(createResponse.status).toBe(501);
-    expect(createResponse.body.error.code).toBe("NOT_IMPLEMENTED");
+    expect(createResponse.status).toBe(422);
+    expect(createResponse.body.error.code).toBe("VALIDATION_ERROR");
   });
 });
+

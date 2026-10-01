@@ -436,8 +436,110 @@ app.post(
 );
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // Lab 3 - Administrator authorization surfaces
+// ---------------------------------------------------------------------------
+
+type AdminUserRole =
+  | "Requester"
+  | "ITStaff"
+  | "Administrator";
+
+function isAdminUserRole(
+  value: unknown
+): value is AdminUserRole {
+  return (
+    value === "Requester" ||
+    value === "ITStaff" ||
+    value === "Administrator"
+  );
+}
+
+function getSingleRole(
+  value: unknown
+): AdminUserRole | null {
+  if (
+    typeof value === "string" &&
+    isAdminUserRole(value)
+  ) {
+    return value;
+  }
+
+  if (
+    Array.isArray(value) &&
+    value.length === 1 &&
+    isAdminUserRole(value[0])
+  ) {
+    return value[0];
+  }
+
+  return null;
+}
+
+function normalizeEmail(
+  value: unknown
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const email = value.trim().toLowerCase();
+
+  if (!email || !email.includes("@")) {
+    return null;
+  }
+
+  return email;
+}
+
+function validateAdminPassword(
+  value: unknown
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const errors = validatePassword(value);
+
+  if (errors.length > 0) {
+    return null;
+  }
+
+  return value;
+}
+
+async function countActiveAdministrators() {
+  const prisma = getPrisma();
+
+  return prisma.user.count({
+    where: {
+      isActive: true,
+      roles: {
+        has: "Administrator",
+      },
+    },
+  });
+}
+
+function sendAdminValidationError(
+  res: Response,
+  message: string,
+  fieldErrors: Array<{
+    field: string;
+    message: string;
+  }> = []
+) {
+  return res.status(422).json({
+    error: {
+      code: "VALIDATION_ERROR",
+      message,
+      fieldErrors,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// List users
+// GET /api/v1/admin/users
 // ---------------------------------------------------------------------------
 app.get(
   "/api/v1/admin/users",
@@ -457,30 +559,35 @@ app.get(
       const prisma = getPrisma();
 
       const page =
-        typeof req.query.page ===
-        "string"
+        typeof req.query.page === "string"
           ? Number(req.query.page)
           : 1;
 
       const pageSize =
-        typeof req.query.pageSize ===
-        "string"
+        typeof req.query.pageSize === "string"
           ? Number(req.query.pageSize)
           : 10;
+
+      const search =
+        typeof req.query.search === "string"
+          ? req.query.search.trim()
+          : "";
+
+      const role =
+        typeof req.query.role === "string"
+          ? req.query.role
+          : "";
 
       if (
         !Number.isInteger(page) ||
         page < 1 ||
-        !Number.isInteger(
-          pageSize
-        ) ||
+        !Number.isInteger(pageSize) ||
         pageSize < 1 ||
         pageSize > 50
       ) {
         return res.status(422).json({
           error: {
-            code:
-              "INVALID_PAGINATION",
+            code: "INVALID_PAGINATION",
             message:
               "Page or page size is invalid.",
             fieldErrors: [],
@@ -488,14 +595,62 @@ app.get(
         });
       }
 
+      if (
+        role &&
+        !isAdminUserRole(role)
+      ) {
+        return sendAdminValidationError(
+          res,
+          "Role is invalid.",
+          [
+            {
+              field: "role",
+              message:
+                "Role must be Requester, ITStaff, or Administrator.",
+            },
+          ]
+        );
+      }
+
+      const where: Prisma.UserWhereInput = {};
+
+      if (search) {
+        where.OR = [
+          {
+            displayName: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+          {
+            email: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        ];
+      }
+
+      if (
+        role === "Requester" ||
+        role === "ITStaff" ||
+        role === "Administrator"
+      ) {
+        where.roles = {
+          has: role,
+        };
+      }
+
       const totalItems =
-        await prisma.user.count();
+        await prisma.user.count({
+          where,
+        });
 
       const users =
         await prisma.user.findMany({
+          where,
           orderBy: {
-            displayName:
-              "asc",
+            displayName: "asc",
           },
           skip:
             (page - 1) *
@@ -508,7 +663,6 @@ app.get(
           (user) =>
             toSafeUser(user)
         ),
-
         meta: {
           page,
           pageSize,
@@ -522,7 +676,7 @@ app.get(
       });
     } catch (error) {
       console.error(
-        "Failed to load admin Users:",
+        "Failed to load admin users:",
         error
       );
 
@@ -531,7 +685,7 @@ app.get(
           code:
             "ADMIN_USERS_FAILED",
           message:
-            "Unable to load Users.",
+            "Unable to load users.",
           fieldErrors: [],
         },
       });
@@ -539,9 +693,16 @@ app.get(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Get one user
+// GET /api/v1/admin/users/:userId
+// ---------------------------------------------------------------------------
 app.get(
   "/api/v1/admin/users/:userId",
-  async (req: Request, res: Response) => {
+  async (
+    req: Request,
+    res: Response
+  ) => {
     try {
       const adminUser =
         await requireRole(
@@ -581,7 +742,7 @@ app.get(
       });
     } catch (error) {
       console.error(
-        "Failed to load admin User:",
+        "Failed to load admin user:",
         error
       );
 
@@ -590,7 +751,7 @@ app.get(
           code:
             "ADMIN_USER_FAILED",
           message:
-            "Unable to load User.",
+            "Unable to load user.",
           fieldErrors: [],
         },
       });
@@ -598,80 +759,639 @@ app.get(
   }
 );
 
-function sendAdminManagementNotImplemented(
-  res: Response
-) {
-  return res.status(501).json({
-    error: {
-      code:
-        "NOT_IMPLEMENTED",
-      message:
-        "Administrator user management is not implemented yet.",
-      fieldErrors: [],
-    },
-  });
-}
-
+// ---------------------------------------------------------------------------
+// Create user
+// POST /api/v1/admin/users
+// ---------------------------------------------------------------------------
 app.post(
   "/api/v1/admin/users",
-  async (req: Request, res: Response) => {
-    const adminUser =
-      await requireRole(
-        req,
-        res,
-        "Administrator"
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const adminUser =
+        await requireRole(
+          req,
+          res,
+          "Administrator"
+        );
+
+      if (!adminUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+
+      const displayName =
+        typeof req.body?.displayName ===
+        "string"
+          ? req.body.displayName.trim()
+          : "";
+
+      const email =
+        normalizeEmail(
+          req.body?.email
+        );
+
+      const role =
+        getSingleRole(
+          req.body?.role
+        );
+
+      const password =
+        validateAdminPassword(
+          req.body?.password
+        );
+
+      if (!displayName) {
+        return sendAdminValidationError(
+          res,
+          "Display name is required.",
+          [
+            {
+              field:
+                "displayName",
+              message:
+                "Display name is required.",
+            },
+          ]
+        );
+      }
+
+      if (!email) {
+        return sendAdminValidationError(
+          res,
+          "Email is invalid.",
+          [
+            {
+              field: "email",
+              message:
+                "A valid email is required.",
+            },
+          ]
+        );
+      }
+
+      if (!role) {
+        return sendAdminValidationError(
+          res,
+          "Exactly one role is required.",
+          [
+            {
+              field: "role",
+              message:
+                "Role must be Requester, ITStaff, or Administrator.",
+            },
+          ]
+        );
+      }
+
+      if (!password) {
+        return sendAdminValidationError(
+          res,
+          "Password is invalid.",
+          [
+            {
+              field:
+                "password",
+              message:
+                "Password does not meet the password requirements.",
+            },
+          ]
+        );
+      }
+
+      const existingUser =
+        await prisma.user.findUnique({
+          where: {
+            email,
+          },
+        });
+
+      if (existingUser) {
+        return res.status(409).json({
+          error: {
+            code:
+              "DUPLICATE_EMAIL",
+            message:
+              "A user with this email already exists.",
+            fieldErrors: [
+              {
+                field:
+                  "email",
+                message:
+                  "Email is already in use.",
+              },
+            ],
+          },
+        });
+      }
+
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
+      const user =
+        await prisma.user.create({
+          data: {
+            displayName,
+            email,
+            passwordHash,
+            roles: [role],
+            isActive: true,
+            passwordState:
+              "InitialPassword",
+          },
+        });
+
+      return res.status(201).json({
+        data:
+          toSafeUser(user),
+      });
+    } catch (error) {
+      if (
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return res.status(409).json({
+          error: {
+            code:
+              "DUPLICATE_EMAIL",
+            message:
+              "A user with this email already exists.",
+            fieldErrors: [
+              {
+                field:
+                  "email",
+                message:
+                  "Email is already in use.",
+              },
+            ],
+          },
+        });
+      }
+
+      console.error(
+        "Failed to create admin user:",
+        error
       );
 
-    if (!adminUser) {
-      return;
+      return res.status(500).json({
+        error: {
+          code:
+            "ADMIN_USER_CREATE_FAILED",
+          message:
+            "Unable to create user.",
+          fieldErrors: [],
+        },
+      });
     }
-
-    return sendAdminManagementNotImplemented(
-      res
-    );
   }
 );
 
+// ---------------------------------------------------------------------------
+// Edit user
+// PATCH /api/v1/admin/users/:userId
+// ---------------------------------------------------------------------------
 app.patch(
   "/api/v1/admin/users/:userId",
-  async (req: Request, res: Response) => {
-    const adminUser =
-      await requireRole(
-        req,
-        res,
-        "Administrator"
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const adminUser =
+        await requireRole(
+          req,
+          res,
+          "Administrator"
+        );
+
+      if (!adminUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+
+      const userId =
+        req.params.userId;
+
+      const existingUser =
+        await prisma.user.findUnique({
+          where: {
+            id: userId,
+          },
+        });
+
+      if (!existingUser) {
+        return res.status(404).json({
+          error: {
+            code:
+              "USER_NOT_FOUND",
+            message:
+              "User not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const data:
+        Prisma.UserUpdateInput = {};
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body ?? {},
+          "displayName"
+        )
+      ) {
+        if (
+          typeof req.body
+            .displayName !==
+            "string" ||
+          !req.body.displayName.trim()
+        ) {
+          return sendAdminValidationError(
+            res,
+            "Display name is required.",
+            [
+              {
+                field:
+                  "displayName",
+                message:
+                  "Display name is required.",
+              },
+            ]
+          );
+        }
+
+        data.displayName =
+          req.body.displayName.trim();
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body ?? {},
+          "email"
+        )
+      ) {
+        const email =
+          normalizeEmail(
+            req.body.email
+          );
+
+        if (!email) {
+          return sendAdminValidationError(
+            res,
+            "Email is invalid.",
+            [
+              {
+                field:
+                  "email",
+                message:
+                  "A valid email is required.",
+              },
+            ]
+          );
+        }
+
+        const existingEmailUser =
+          await prisma.user.findUnique({
+            where: {
+              email,
+            },
+          });
+
+        if (
+          existingEmailUser &&
+          existingEmailUser.id !==
+            userId
+        ) {
+          return res.status(409).json({
+            error: {
+              code:
+                "DUPLICATE_EMAIL",
+              message:
+                "A user with this email already exists.",
+              fieldErrors: [
+                {
+                  field:
+                    "email",
+                  message:
+                    "Email is already in use.",
+                },
+              ],
+            },
+          });
+        }
+
+        data.email = email;
+      }
+
+      let newRole:
+        | AdminUserRole
+        | null = null;
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body ?? {},
+          "role"
+        )
+      ) {
+        newRole =
+          getSingleRole(
+            req.body.role
+          );
+
+        if (!newRole) {
+          return sendAdminValidationError(
+            res,
+            "Exactly one role is required.",
+            [
+              {
+                field:
+                  "role",
+                message:
+                  "Role must be Requester, ITStaff, or Administrator.",
+              },
+            ]
+          );
+        }
+
+        data.roles = [newRole];
+      }
+
+      let newIsActive:
+        | boolean
+        | undefined;
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body ?? {},
+          "isActive"
+        )
+      ) {
+        if (
+          typeof req.body
+            .isActive !==
+          "boolean"
+        ) {
+          return sendAdminValidationError(
+            res,
+            "isActive must be a boolean.",
+            [
+              {
+                field:
+                  "isActive",
+                message:
+                  "isActive must be true or false.",
+              },
+            ]
+          );
+        }
+
+        newIsActive =
+          req.body.isActive;
+
+        data.isActive =
+          newIsActive;
+      }
+
+      const currentIsAdministrator =
+        existingUser.roles.includes(
+          "Administrator"
+        );
+
+      const resultingIsAdministrator =
+        newRole !== null
+          ? newRole ===
+            "Administrator"
+          : currentIsAdministrator;
+
+      const resultingIsActive =
+        newIsActive !==
+          undefined
+          ? newIsActive
+          : existingUser.isActive;
+
+      // Prevent self-deactivation.
+      if (
+        existingUser.id ===
+          adminUser.id &&
+        newIsActive === false
+      ) {
+        return res.status(409).json({
+          error: {
+            code:
+              "SELF_DEACTIVATION_FORBIDDEN",
+            message:
+              "You cannot deactivate your own account.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      // Prevent removing/deactivating
+      // the last active Administrator.
+      if (
+        currentIsAdministrator &&
+        existingUser.isActive &&
+        (!resultingIsAdministrator ||
+          !resultingIsActive)
+      ) {
+        const activeAdministrators =
+          await countActiveAdministrators();
+
+        if (
+          activeAdministrators <= 1
+        ) {
+          return res.status(409).json({
+            error: {
+              code:
+                "LAST_ACTIVE_ADMIN_FORBIDDEN",
+              message:
+                "The last active Administrator cannot be removed or deactivated.",
+              fieldErrors: [],
+            },
+          });
+        }
+      }
+
+      if (
+        Object.keys(data).length ===
+        0
+      ) {
+        return res.status(422).json({
+          error: {
+            code:
+              "NO_CHANGES",
+            message:
+              "No changes were provided.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const user =
+        await prisma.user.update({
+          where: {
+            id: userId,
+          },
+          data,
+        });
+
+      return res.status(200).json({
+        data:
+          toSafeUser(user),
+      });
+    } catch (error) {
+      if (
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return res.status(409).json({
+          error: {
+            code:
+              "DUPLICATE_EMAIL",
+            message:
+              "A user with this email already exists.",
+            fieldErrors: [
+              {
+                field:
+                  "email",
+                message:
+                  "Email is already in use.",
+              },
+            ],
+          },
+        });
+      }
+
+      console.error(
+        "Failed to update admin user:",
+        error
       );
 
-    if (!adminUser) {
-      return;
+      return res.status(500).json({
+        error: {
+          code:
+            "ADMIN_USER_UPDATE_FAILED",
+          message:
+            "Unable to update user.",
+          fieldErrors: [],
+        },
+      });
     }
-
-    return sendAdminManagementNotImplemented(
-      res
-    );
   }
 );
 
+// ---------------------------------------------------------------------------
+// Set new initial password
+// PATCH /api/v1/admin/users/:userId/password
+// ---------------------------------------------------------------------------
 app.patch(
   "/api/v1/admin/users/:userId/password",
-  async (req: Request, res: Response) => {
-    const adminUser =
-      await requireRole(
-        req,
-        res,
-        "Administrator"
+  async (
+    req: Request,
+    res: Response
+  ) => {
+    try {
+      const adminUser =
+        await requireRole(
+          req,
+          res,
+          "Administrator"
+        );
+
+      if (!adminUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+
+      const user =
+        await prisma.user.findUnique({
+          where: {
+            id: req.params.userId,
+          },
+        });
+
+      if (!user) {
+        return res.status(404).json({
+          error: {
+            code:
+              "USER_NOT_FOUND",
+            message:
+              "User not found.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const password =
+        validateAdminPassword(
+          req.body?.password
+        );
+
+      if (!password) {
+        return sendAdminValidationError(
+          res,
+          "Password is invalid.",
+          [
+            {
+              field:
+                "password",
+              message:
+                "Password does not meet the password requirements.",
+            },
+          ]
+        );
+      }
+
+      const passwordHash =
+        await hashPassword(
+          password
+        );
+
+      const updatedUser =
+        await prisma.user.update({
+          where: {
+            id: user.id,
+          },
+          data: {
+            passwordHash,
+            passwordState:
+              "InitialPassword",
+          },
+        });
+
+      return res.status(200).json({
+        data:
+          toSafeUser(
+            updatedUser
+          ),
+      });
+    } catch (error) {
+      console.error(
+        "Failed to set admin user password:",
+        error
       );
 
-    if (!adminUser) {
-      return;
+      return res.status(500).json({
+        error: {
+          code:
+            "ADMIN_USER_PASSWORD_FAILED",
+          message:
+            "Unable to set user password.",
+          fieldErrors: [],
+        },
+      });
     }
-
-    return sendAdminManagementNotImplemented(
-      res
-    );
   }
 );
-
 // ---------------------------------------------------------------------------
 // Lab 1 - API health check
 // GET /api/health
