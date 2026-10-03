@@ -4,27 +4,74 @@ import {
   type Page,
 } from "@playwright/test";
 
-async function selectRequester(
-  page: Page
-) {
+async function loginAsRequester(page: Page) {
   await page.goto("/");
 
-  const requesterSelect =
-    page.locator(
-      "#developmentRequester"
-    );
+  const email = "anan.chaiyasit@example.com";
+  const currentPassword = "ChangeMe123!";
+  const stablePassword = "NewPass123";
 
-  await expect(
-    requesterSelect
-  ).toBeVisible();
+  await page
+    .getByLabel("Email")
+    .fill(email);
 
-  await requesterSelect.selectOption({
-    index: 1,
-  });
+  await page
+    .getByLabel("Password")
+    .fill(stablePassword);
 
   await page
     .getByRole("button", {
-      name: "Continue",
+      name: "Sign In",
+    })
+    .click();
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "Create Ticket",
+      })
+    ).toBeVisible({ timeout: 3000 });
+
+    return;
+  } catch {
+    // First login after a fresh seed uses the temporary password.
+  }
+
+  await page
+    .getByLabel("Email")
+    .fill(email);
+
+  await page
+    .getByLabel("Password")
+    .fill(currentPassword);
+
+  await page
+    .getByRole("button", {
+      name: "Sign In",
+    })
+    .click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Change Password",
+    })
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Current Password")
+    .fill(currentPassword);
+
+  await page
+    .getByLabel("New Password")
+    .fill(stablePassword);
+
+  await page
+    .getByLabel("Confirm Password")
+    .fill(stablePassword);
+
+  await page
+    .getByRole("button", {
+      name: "Change Password",
     })
     .click();
 
@@ -38,7 +85,7 @@ async function selectRequester(
 test(
   "E2E-01 Requester creates a Ticket and opens it from My Tickets",
   async ({ page }) => {
-    await selectRequester(page);
+    await loginAsRequester(page);
 
     const uniqueValue =
       Date.now();

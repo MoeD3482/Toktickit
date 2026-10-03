@@ -4,30 +4,74 @@ import {
   type Page,
 } from "@playwright/test";
 
-async function selectRequester(
-  page: Page
-): Promise<string> {
+async function loginAsRequester(page: Page) {
   await page.goto("/");
 
-  const requesterSelect =
-    page.locator(
-      "#developmentRequester"
-    );
+  const email = "anan.chaiyasit@example.com";
+  const currentPassword = "ChangeMe123!";
+  const stablePassword = "NewPass123";
 
-  await expect(
-    requesterSelect
-  ).toBeVisible();
+  await page
+    .getByLabel("Email")
+    .fill(email);
 
-  await requesterSelect.selectOption({
-    index: 1,
-  });
-
-  const requesterId =
-    await requesterSelect.inputValue();
+  await page
+    .getByLabel("Password")
+    .fill(stablePassword);
 
   await page
     .getByRole("button", {
-      name: "Continue",
+      name: "Sign In",
+    })
+    .click();
+
+  try {
+    await expect(
+      page.getByRole("heading", {
+        name: "Create Ticket",
+      })
+    ).toBeVisible({ timeout: 3000 });
+
+    return;
+  } catch {
+    // First login after a fresh seed uses the temporary password.
+  }
+
+  await page
+    .getByLabel("Email")
+    .fill(email);
+
+  await page
+    .getByLabel("Password")
+    .fill(currentPassword);
+
+  await page
+    .getByRole("button", {
+      name: "Sign In",
+    })
+    .click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Change Password",
+    })
+  ).toBeVisible();
+
+  await page
+    .getByLabel("Current Password")
+    .fill(currentPassword);
+
+  await page
+    .getByLabel("New Password")
+    .fill(stablePassword);
+
+  await page
+    .getByLabel("Confirm Password")
+    .fill(stablePassword);
+
+  await page
+    .getByRole("button", {
+      name: "Change Password",
     })
     .click();
 
@@ -36,10 +80,7 @@ async function selectRequester(
       name: "Create Ticket",
     })
   ).toBeVisible();
-
-  return requesterId;
 }
-
 async function createTicketAndOpenDetail(
   page: Page
 ) {
@@ -143,12 +184,8 @@ async function createTicketAndOpenDetail(
 
 test(
   "E2E-03 uploads, downloads, soft-removes, and blocks removed Attachment download",
-  async ({
-    page,
-    request,
-  }) => {
-    const requesterId =
-      await selectRequester(page);
+  async ({ page, context }) => {
+    await loginAsRequester(page);
 
     await createTicketAndOpenDetail(
       page
@@ -333,19 +370,13 @@ test(
      * The API must also prevent direct
      * binary download after soft removal.
      */
-    const blockedResponse =
-      await request.get(
-        `http://127.0.0.1:3000/api/v1/tickets/${ticketId}/attachments/${attachmentId}/download`,
-        {
-          headers: {
-            "X-Development-Requester-Id":
-              requesterId,
-          },
-        }
-      );
+   const blockedResponse =
+  await context.request.get(
+    `http://127.0.0.1:3000/api/v1/tickets/${ticketId}/attachments/${attachmentId}/download`
+  );
 
-    expect(
-      blockedResponse.status()
-    ).not.toBe(200);
+expect(
+  blockedResponse.status()
+).not.toBe(200);
   }
 );

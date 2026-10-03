@@ -8,6 +8,7 @@ const ticket = {
   id: "staff-ticket-1",
   ticketNo: "TKT-2026-00042",
   summary: "VPN access needs investigation",
+  description: "Test ticket description",
   requester: {
     id: "requester-1",
     displayName: "Anan Chaiyasit",
