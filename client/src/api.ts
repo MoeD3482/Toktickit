@@ -49,7 +49,8 @@ export async function login(
     throw new Error("Email or password is incorrect.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -66,7 +67,8 @@ export async function getCurrentUser(): Promise<AuthenticatedUser> {
     throw new Error("Authentication required.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -110,7 +112,8 @@ export async function changePassword(
     throw new Error("Unable to change password.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -746,12 +749,18 @@ export interface StaffAssignee extends StaffActor {}
 
 export class ApiRequestError extends Error {
   status: number;
-  fieldErrors: { field: string; message: string }[];
+  fieldErrors: {
+    field: string;
+    message: string;
+  }[];
 
   constructor(
     status: number,
     message: string,
-    fieldErrors: { field: string; message: string }[] = []
+    fieldErrors: {
+      field: string;
+      message: string;
+    }[] = []
   ) {
     super(message);
     this.name = "ApiRequestError";
@@ -764,7 +773,9 @@ async function getApiError(
   response: Response,
   fallbackMessage: string
 ) {
-  const result = await response.json().catch(() => null);
+  const result =
+    await response.json().catch(() => null);
+
   const error = result?.error;
 
   return new ApiRequestError(
@@ -783,30 +794,48 @@ async function staffRequest<T>(
   init: RequestInit = {},
   fallbackMessage: string
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${API_URL}${path}`,
+    {
+      ...init,
+      credentials: "include",
+    }
+  );
 
   if (!response.ok) {
-    throw await getApiError(response, fallbackMessage);
+    throw await getApiError(
+      response,
+      fallbackMessage
+    );
   }
 
-  const result: { data: T } = await response.json();
+  const result: { data: T } =
+    await response.json();
+
   return result.data;
 }
 
-function staffQueryString(query: StaffTicketQuery) {
+function staffQueryString(
+  query: StaffTicketQuery
+) {
   const params = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "") {
+  for (const [key, value] of Object.entries(
+    query
+  )) {
+    if (
+      value !== undefined &&
+      value !== ""
+    ) {
       params.set(key, String(value));
     }
   }
 
   const value = params.toString();
-  return value ? `?${value}` : "";
+
+  return value
+    ? `?${value}`
+    : "";
 }
 
 export async function getStaffTickets(
@@ -816,8 +845,12 @@ export async function getStaffTickets(
   meta: StaffTicketMeta;
 }> {
   const response = await fetch(
-    `${API_URL}/api/v1/staff/tickets${staffQueryString(query)}`,
-    { credentials: "include" }
+    `${API_URL}/api/v1/staff/tickets${staffQueryString(
+      query
+    )}`,
+    {
+      credentials: "include",
+    }
   );
 
   if (!response.ok) {
@@ -830,7 +863,9 @@ export async function getStaffTickets(
   return response.json();
 }
 
-export function getStaffAssignees(): Promise<StaffAssignee[]> {
+export function getStaffAssignees(): Promise<
+  StaffAssignee[]
+> {
   return staffRequest(
     "/api/v1/staff/assignees",
     {},
@@ -856,7 +891,9 @@ export function claimStaffTicket(
 }> {
   return staffRequest(
     `/api/v1/staff/tickets/${ticketId}/claim`,
-    { method: "POST" },
+    {
+      method: "POST",
+    },
     "Unable to claim Ticket."
   );
 }
@@ -872,8 +909,12 @@ export function updateStaffAssignment(
     `/api/v1/staff/tickets/${ticketId}/assignment`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignedToUserId }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assignedToUserId,
+      }),
     },
     "Unable to update Ticket assignment."
   );
@@ -890,8 +931,12 @@ export function updateStaffITPriority(
     `/api/v1/staff/tickets/${ticketId}/it-priority`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itPriority }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        itPriority,
+      }),
     },
     "Unable to update IT Priority."
   );
@@ -909,8 +954,13 @@ export function updateStaffStatus(
     `/api/v1/staff/tickets/${ticketId}/status`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, reason }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        status,
+        reason,
+      }),
     },
     "Unable to update Ticket status."
   );
@@ -924,8 +974,12 @@ export function addStaffAction(
     `/api/v1/staff/tickets/${ticketId}/actions`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the action."
   );
@@ -939,8 +993,12 @@ export function addStaffInternalNote(
     `/api/v1/staff/tickets/${ticketId}/internal-notes`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the internal note."
   );
@@ -954,10 +1012,39 @@ export function addPublicComment(
     `/api/v1/tickets/${ticketId}/comments`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the public comment."
+  );
+}
+
+/* =========================================================
+   Lab 3 - IT Staff Attachments
+   ========================================================= */
+
+export async function uploadStaffTicketAttachment(
+  ticketId: string,
+  file: File
+): Promise<StaffTicketAttachment> {
+  const formData = new FormData();
+
+  formData.append(
+    "file",
+    file
+  );
+
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/attachments`,
+    {
+      method: "POST",
+      body: formData,
+    },
+    "Unable to upload Attachment."
   );
 }
 
@@ -967,7 +1054,9 @@ export async function downloadStaffTicketAttachment(
 ): Promise<Blob> {
   const response = await fetch(
     `${API_URL}/api/v1/staff/tickets/${ticketId}/attachments/${attachmentId}/download`,
-    { credentials: "include" }
+    {
+      credentials: "include",
+    }
   );
 
   if (!response.ok) {
@@ -979,6 +1068,7 @@ export async function downloadStaffTicketAttachment(
 
   return response.blob();
 }
+
 export type AdminUserRole =
   | "Requester"
   | "ITStaff"
@@ -1019,19 +1109,31 @@ export async function getAdminUsers(
   const params = new URLSearchParams();
 
   if (filters.page !== undefined) {
-    params.set("page", String(filters.page));
+    params.set(
+      "page",
+      String(filters.page)
+    );
   }
 
   if (filters.pageSize !== undefined) {
-    params.set("pageSize", String(filters.pageSize));
+    params.set(
+      "pageSize",
+      String(filters.pageSize)
+    );
   }
 
   if (filters.search) {
-    params.set("search", filters.search);
+    params.set(
+      "search",
+      filters.search
+    );
   }
 
   if (filters.role) {
-    params.set("role", filters.role);
+    params.set(
+      "role",
+      filters.role
+    );
   }
 
   if (filters.isActive !== undefined) {
