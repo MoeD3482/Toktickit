@@ -6,6 +6,7 @@ import MyTickets from "./components/MyTickets.js";
 import RequesterTicketDetail from "./components/RequesterTicketDetail.js";
 import StaffQueue from "./components/StaffQueue.js";
 import StaffTicketDetail from "./components/StaffTicketDetail.js";
+import UserManagement from "./components/UserManagement.js";
 
 import {
   AuthenticatedUser,
@@ -14,8 +15,17 @@ import {
   logout,
 } from "./api.js";
 
-type ActivePage = "create" | "tickets" | "staff-queue";
-type AuthState = "checking" | "anonymous" | "authenticated";
+type ActivePage =
+  | "create"
+  | "tickets"
+  | "staff-queue"
+  | "user-management"
+  | "create-user";
+
+type AuthState =
+  | "checking"
+  | "anonymous"
+  | "authenticated";
 
 export default function App() {
   const [authState, setAuthState] =
@@ -37,12 +47,27 @@ export default function App() {
     async function loadCurrentUser() {
       try {
         const user = await getCurrentUser();
+
         setCurrentUser(user);
-        setActivePage(
-          user.roles.includes("ITStaff")
-            ? "staff-queue"
-            : "create"
-        );
+
+        if (
+          user.roles.includes(
+            "Administrator"
+          )
+        ) {
+          setActivePage(
+            "user-management"
+          );
+        } else if (
+          user.roles.includes(
+            "ITStaff"
+          )
+        ) {
+          setActivePage("staff-queue");
+        } else {
+          setActivePage("create");
+        }
+
         setAuthState("authenticated");
       } catch {
         setCurrentUser(null);
@@ -57,8 +82,7 @@ export default function App() {
     try {
       await logout();
     } catch {
-      // The user should still leave the authenticated UI even if
-      // the server session has already expired.
+      // Leave the authenticated UI even if the session already expired.
     }
 
     setCurrentUser(null);
@@ -68,49 +92,89 @@ export default function App() {
     setAuthState("anonymous");
   }
 
-  function handleAuthenticated(user: AuthenticatedUser) {
+  function handleAuthenticated(
+    user: AuthenticatedUser
+  ) {
     setCurrentUser(user);
     setSelectedTicketId(null);
     setSelectedStaffTicketId(null);
-    setActivePage(
+
+    if (
+      user.roles.includes(
+        "Administrator"
+      )
+    ) {
+      setActivePage(
+        "user-management"
+      );
+    } else if (
       user.roles.includes("ITStaff")
-        ? "staff-queue"
-        : "create"
-    );
+    ) {
+      setActivePage("staff-queue");
+    } else {
+      setActivePage("create");
+    }
+
     setAuthState("authenticated");
   }
 
   if (authState === "checking") {
     return (
       <div className="container py-5">
-        <p role="status">Checking authentication...</p>
+        <p role="status">
+          Checking authentication...
+        </p>
       </div>
     );
   }
 
-  if (authState === "anonymous" || !currentUser) {
-    return <Login onLogin={handleAuthenticated} />;
-  }
-
-  if (currentUser.passwordState === "ChangeRequired") {
+  if (
+    authState === "anonymous" ||
+    !currentUser
+  ) {
     return (
-      <ChangePassword
-        user={currentUser}
-        onPasswordChanged={handleAuthenticated}
+      <Login
+        onLogin={handleAuthenticated}
       />
     );
   }
 
-  const currentRequester: DevelopmentRequester = {
-    id: currentUser.id,
-    displayName: currentUser.displayName,
-    email: currentUser.email,
-  };
+  if (
+    currentUser.passwordState ===
+    "ChangeRequired"
+  ) {
+    return (
+      <ChangePassword
+        user={currentUser}
+        onPasswordChanged={
+          handleAuthenticated
+        }
+      />
+    );
+  }
+
+  const currentRequester: DevelopmentRequester =
+    {
+      id: currentUser.id,
+      displayName:
+        currentUser.displayName,
+      email: currentUser.email,
+    };
 
   const canUseRequesterWorkflow =
-    currentUser.roles.includes("Requester");
+    currentUser.roles.includes(
+      "Requester"
+    );
+
   const canUseStaffWorkflow =
-    currentUser.roles.includes("ITStaff");
+    currentUser.roles.includes(
+      "ITStaff"
+    );
+
+  const canUseAdminWorkflow =
+    currentUser.roles.includes(
+      "Administrator"
+    );
 
   return (
     <div
@@ -127,10 +191,13 @@ export default function App() {
             Current user:{" "}
             <strong>
               {currentUser.displayName}
-            </strong>
-            {" "}
+            </strong>{" "}
             <span className="text-muted">
-              ({currentUser.roles.join(", ")})
+              (
+              {currentUser.roles.join(
+                ", "
+              )}
+              )
             </span>
           </p>
         </div>
@@ -141,14 +208,21 @@ export default function App() {
               <button
                 type="button"
                 className={
-                  activePage === "tickets"
+                  activePage ===
+                  "tickets"
                     ? "btn btn-success"
                     : "btn btn-outline-success"
                 }
                 onClick={() => {
-                  setActivePage("tickets");
-                  setSelectedTicketId(null);
-                  setSelectedStaffTicketId(null);
+                  setActivePage(
+                    "tickets"
+                  );
+                  setSelectedTicketId(
+                    null
+                  );
+                  setSelectedStaffTicketId(
+                    null
+                  );
                 }}
               >
                 My Tickets
@@ -157,14 +231,21 @@ export default function App() {
               <button
                 type="button"
                 className={
-                  activePage === "create"
+                  activePage ===
+                  "create"
                     ? "btn btn-success"
                     : "btn btn-outline-success"
                 }
                 onClick={() => {
-                  setActivePage("create");
-                  setSelectedTicketId(null);
-                  setSelectedStaffTicketId(null);
+                  setActivePage(
+                    "create"
+                  );
+                  setSelectedTicketId(
+                    null
+                  );
+                  setSelectedStaffTicketId(
+                    null
+                  );
                 }}
               >
                 Create Ticket
@@ -176,17 +257,49 @@ export default function App() {
             <button
               type="button"
               className={
-                activePage === "staff-queue"
+                activePage ===
+                "staff-queue"
                   ? "btn btn-success"
                   : "btn btn-outline-success"
               }
               onClick={() => {
-                setActivePage("staff-queue");
-                setSelectedTicketId(null);
-                setSelectedStaffTicketId(null);
+                setActivePage(
+                  "staff-queue"
+                );
+                setSelectedTicketId(
+                  null
+                );
+                setSelectedStaffTicketId(
+                  null
+                );
               }}
             >
               Staff Queue
+            </button>
+          )}
+
+          {canUseAdminWorkflow && (
+            <button
+              type="button"
+              className={
+                activePage ===
+                "user-management"
+                  ? "btn btn-success"
+                  : "btn btn-outline-success"
+              }
+              onClick={() => {
+                setActivePage(
+                  "user-management"
+                );
+                setSelectedTicketId(
+                  null
+                );
+                setSelectedStaffTicketId(
+                  null
+                );
+              }}
+            >
+              User Management
             </button>
           )}
 
@@ -200,34 +313,96 @@ export default function App() {
         </div>
       </div>
 
-      {!canUseRequesterWorkflow && !canUseStaffWorkflow && (
-        <div className="alert alert-info">
-          No requester workflow is available for this role yet.
-        </div>
-      )}
+      {canUseAdminWorkflow &&
+        activePage ===
+          "user-management" && (
+          <UserManagement
+            onCreateUser={() =>
+              setActivePage(
+                "create-user"
+              )
+            }
+            onEditUser={() => {
+              // Edit workflow can be wired here later.
+            }}
+          />
+        )}
+
+      {canUseAdminWorkflow &&
+        activePage === "create-user" && (
+          <section>
+            <h1>Create User</h1>
+
+            <p>
+              Create a new TokTickIT
+              user account.
+            </p>
+
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() =>
+                setActivePage(
+                  "user-management"
+                )
+              }
+            >
+              Back to User Management
+            </button>
+          </section>
+        )}
+
+      {!canUseRequesterWorkflow &&
+        !canUseStaffWorkflow &&
+        !canUseAdminWorkflow && (
+          <div className="alert alert-info">
+            No workflow is available
+            for this role yet.
+          </div>
+        )}
 
       {canUseRequesterWorkflow && (
         <>
           {selectedTicketId ? (
             <RequesterTicketDetail
-              requester={currentRequester}
-              ticketId={selectedTicketId}
+              requester={
+                currentRequester
+              }
+              ticketId={
+                selectedTicketId
+              }
               onBack={() => {
-                setSelectedTicketId(null);
-                setActivePage("tickets");
+                setSelectedTicketId(
+                  null
+                );
+                setActivePage(
+                  "tickets"
+                );
               }}
             />
           ) : (
             <>
-              {activePage === "create" && (
-                <CreateTicket requester={currentRequester} />
+              {activePage ===
+                "create" && (
+                <CreateTicket
+                  requester={
+                    currentRequester
+                  }
+                />
               )}
 
-              {activePage === "tickets" && (
+              {activePage ===
+                "tickets" && (
                 <MyTickets
-                  requester={currentRequester}
-                  onSelectTicket={(ticketId) =>
-                    setSelectedTicketId(ticketId)
+                  requester={
+                    currentRequester
+                  }
+                  onSelectTicket={(
+                    ticketId
+                  ) =>
+                    setSelectedTicketId(
+                      ticketId
+                    )
                   }
                 />
               )}
@@ -236,20 +411,34 @@ export default function App() {
         </>
       )}
 
-      {canUseStaffWorkflow && activePage === "staff-queue" && (
-        selectedStaffTicketId ? (
-          <StaffTicketDetail
-            ticketId={selectedStaffTicketId}
-            onBack={() => setSelectedStaffTicketId(null)}
-          />
-        ) : (
-          <StaffQueue
-            onSelectTicket={(ticketId) =>
-              setSelectedStaffTicketId(ticketId)
-            }
-          />
-        )
-      )}
+      {canUseStaffWorkflow &&
+        activePage ===
+          "staff-queue" && (
+          <>
+            {selectedStaffTicketId ? (
+              <StaffTicketDetail
+                ticketId={
+                  selectedStaffTicketId
+                }
+                onBack={() =>
+                  setSelectedStaffTicketId(
+                    null
+                  )
+                }
+              />
+            ) : (
+              <StaffQueue
+                onSelectTicket={(
+                  ticketId
+                ) =>
+                  setSelectedStaffTicketId(
+                    ticketId
+                  )
+                }
+              />
+            )}
+          </>
+        )}
     </div>
   );
 }

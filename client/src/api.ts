@@ -979,3 +979,81 @@ export async function downloadStaffTicketAttachment(
 
   return response.blob();
 }
+export type AdminUserRole =
+  | "Requester"
+  | "ITStaff"
+  | "Administrator";
+
+export type AdminUser = {
+  id: string;
+  displayName: string;
+  email: string;
+  roles: AdminUserRole[];
+  isActive: boolean;
+  passwordState: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminUserFilters = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  role?: AdminUserRole;
+  isActive?: boolean;
+};
+
+export type AdminUserListResponse = {
+  data: AdminUser[];
+  meta: {
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalItems: number;
+  };
+};
+
+export async function getAdminUsers(
+  filters: AdminUserFilters = {}
+): Promise<AdminUserListResponse> {
+  const params = new URLSearchParams();
+
+  if (filters.page !== undefined) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters.pageSize !== undefined) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  if (filters.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters.role) {
+    params.set("role", filters.role);
+  }
+
+  if (filters.isActive !== undefined) {
+    params.set(
+      "isActive",
+      String(filters.isActive)
+    );
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/v1/admin/users?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw await getApiError(
+      response,
+      "Unable to load users."
+    );
+  }
+
+  return response.json();
+}

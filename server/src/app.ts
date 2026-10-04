@@ -569,15 +569,19 @@ app.get(
           : 10;
 
       const search =
-        typeof req.query.search === "string"
-          ? req.query.search.trim()
-          : "";
+  typeof req.query.search === "string"
+    ? req.query.search.trim()
+    : "";
 
-      const role =
-        typeof req.query.role === "string"
-          ? req.query.role
-          : "";
+const role =
+  typeof req.query.role === "string"
+    ? req.query.role
+    : "";
 
+const isActive =
+  typeof req.query.isActive === "string"
+    ? req.query.isActive
+    : "";
       if (
         !Number.isInteger(page) ||
         page < 1 ||
@@ -595,22 +599,22 @@ app.get(
         });
       }
 
-      if (
-        role &&
-        !isAdminUserRole(role)
-      ) {
-        return sendAdminValidationError(
-          res,
-          "Role is invalid.",
-          [
-            {
-              field: "role",
-              message:
-                "Role must be Requester, ITStaff, or Administrator.",
-            },
-          ]
-        );
-      }
+     if (
+  role &&
+  !isAdminUserRole(role)
+) {
+  return sendAdminValidationError(
+    res,
+    "Role is invalid.",
+    [
+      {
+        field: "role",
+        message:
+          "Role must be Requester, ITStaff, or Administrator.",
+      },
+    ]
+  );
+}
 
       const where: Prisma.UserWhereInput = {};
 
@@ -630,8 +634,7 @@ app.get(
           },
         ];
       }
-
-      if (
+            if (
         role === "Requester" ||
         role === "ITStaff" ||
         role === "Administrator"
@@ -640,6 +643,12 @@ app.get(
           has: role,
         };
       }
+
+      if (isActive === "true") {
+  where.isActive = true;
+} else if (isActive === "false") {
+  where.isActive = false;
+}
 
       const totalItems =
         await prisma.user.count({
@@ -951,7 +960,6 @@ app.post(
     }
   }
 );
-
 // ---------------------------------------------------------------------------
 // Edit user
 // PATCH /api/v1/admin/users/:userId
