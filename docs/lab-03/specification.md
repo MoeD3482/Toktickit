@@ -227,7 +227,7 @@ Administrators may also access IT Staff capabilities when the account has the IT
 
 **BR-04** User email must be unique.
 
-**BR-05** A user may have one or more roles.
+**BR-05** A user has exactly one role.
 
 **BR-06** At least one active Administrator must always remain.
 
