@@ -121,7 +121,7 @@ Administrator navigation:
 
 - User Management
 
-Users with multiple roles may see multiple navigation groups.
+Each user has exactly one role, so navigation shows only the capabilities of that role.
 
 ### Forbidden State
 
@@ -262,7 +262,7 @@ Required behavior:
 
 - email format validation;
 - duplicate email feedback;
-- at least one role required;
+- exactly one role required;
 - unsupported roles rejected;
 - inactive state warning;
 - last Administrator protection feedback;

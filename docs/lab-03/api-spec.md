@@ -553,7 +553,7 @@ Request:
   "displayName": "IT Staff User",
   "email": "staff@example.com",
   "password": "temporary-password",
-  "roles": ["ITStaff"],
+  "role": "ITStaff",
   "isActive": true
 }
 ```
@@ -563,7 +563,7 @@ Rules:
 - email is required and unique;
 - display name is required;
 - password is required for new local accounts;
-- at least one role is required;
+- exactly one role is required;
 - unsupported roles are rejected; and
 - password is stored only as a one-way hash.
 
@@ -583,7 +583,7 @@ Request:
 {
   "displayName": "Updated Name",
   "email": "updated@example.com",
-  "roles": ["Requester", "ITStaff"],
+  "role": "ITStaff",
   "isActive": true
 }
 ```
@@ -630,7 +630,7 @@ Sets a new one-way password hash. Plain-text passwords must not be returned.
 | Actions Taken | No | Yes | Conditional |
 | User management | No | No | Yes |
 
-Conditional Administrator staff access must be decided consistently during implementation and reflected in tests.
+Administrator staff access is supported only on the staff operations explicitly marked as allowing Administrator access above. Other staff endpoints remain IT Staff only.
 
 ---
 
