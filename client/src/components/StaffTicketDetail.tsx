@@ -10,6 +10,7 @@ import {
   ApiRequestError,
   claimStaffTicket,
   downloadStaffTicketAttachment,
+  uploadStaffTicketAttachment,
   getStaffAssignees,
   getStaffTicketDetail,
   ITPriority,
@@ -41,8 +42,8 @@ const transitions: Record<TicketStatus, TicketStatus[]> = {
     "Cancelled",
   ],
   WaitingForRequester: ["InProgress", "Resolved"],
-  Resolved: ["Closed", "Reopened"],
-  Closed: [],
+  Resolved: ["Closed"],
+  Closed: ["Reopened"],
   Reopened: ["InProgress"],
   Cancelled: [],
 };
@@ -248,7 +249,38 @@ export default function StaffTicketDetail({
       setSaving("");
     }
   }
+  async function handleUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
+    const form = event.currentTarget;
+    const input = form.elements.namedItem("attachment") as HTMLInputElement;
+
+    if (!input.files || input.files.length === 0) {
+      setErrorMessage("Please select a file.");
+      return;
+    }
+
+    const file = input.files[0];
+
+    try {
+      setSaving("upload");
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      await uploadStaffTicketAttachment(ticketId, file);
+
+      setSuccessMessage("Attachment uploaded successfully.");
+      input.value = "";
+
+      await loadTicket();
+    } catch (error) {
+      setErrorMessage(
+        getErrorMessage(error, "Unable to upload Attachment.")
+      );
+    } finally {
+      setSaving("");
+    }
+  }
   if (loading) {
     return (
       <div className="alert alert-light border text-center py-4" role="status">
@@ -374,27 +406,75 @@ export default function StaffTicketDetail({
             </form>
           </section>
 
-          <section className="zen-section p-3 mb-4" aria-labelledby="attachments-title">
-            <h3 id="attachments-title" className="h5 mb-3">Attachments</h3>
+                    <section
+            className="zen-section p-3 mb-4"
+            aria-labelledby="attachments-title"
+          >
+            <h3 id="attachments-title" className="h5 mb-3">
+              Attachments
+            </h3>
+
+            <form onSubmit={handleUpload} className="mb-4">
+              <label
+                htmlFor="staff-attachment"
+                className="form-label"
+              >
+                Upload Attachment
+              </label>
+
+              <div className="d-flex flex-column flex-sm-row gap-2">
+                <input
+                  id="staff-attachment"
+                  name="attachment"
+                  type="file"
+                  className="form-control"
+                  disabled={saving !== ""}
+                />
+
+                <button
+                  type="submit"
+                  className="btn btn-success text-nowrap"
+                  disabled={saving !== ""}
+                >
+                  {saving === "upload" ? "Uploading..." : "Upload"}
+                </button>
+              </div>
+            </form>
+
             {ticket.attachments.length === 0 ? (
-              <p className="text-muted mb-0">No active Attachments.</p>
+              <p className="text-muted mb-0">
+                No active Attachments.
+              </p>
             ) : (
               <div className="list-group list-group-flush">
                 {ticket.attachments.map((attachment) => (
-                  <div key={attachment.id} className="list-group-item px-0 d-flex flex-column flex-sm-row justify-content-between gap-2">
+                  <div
+                    key={attachment.id}
+                    className="list-group-item px-0 d-flex flex-column flex-sm-row justify-content-between gap-2"
+                  >
                     <div className="text-break">
                       <strong>{attachment.originalFilename}</strong>
+
                       <div className="small text-muted">
-                        {attachment.mimeType} · {Math.ceil(attachment.sizeBytes / 1024)} KB
+                        {attachment.mimeType} ·{" "}
+                        {Math.ceil(attachment.sizeBytes / 1024)} KB
                       </div>
                     </div>
+
                     <button
                       type="button"
                       className="btn btn-outline-success align-self-sm-center"
                       disabled={saving !== ""}
-                      onClick={() => void handleDownload(attachment.id, attachment.originalFilename)}
+                      onClick={() =>
+                        void handleDownload(
+                          attachment.id,
+                          attachment.originalFilename
+                        )
+                      }
                     >
-                      {saving === `download-${attachment.id}` ? "Downloading..." : "Download"}
+                      {saving === `download-${attachment.id}`
+                        ? "Downloading..."
+                        : "Download"}
                     </button>
                   </div>
                 ))}

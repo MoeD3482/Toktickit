@@ -7,44 +7,58 @@ async function loginAsStaff(page: Page) {
   const tempPassword = "ChangeMe123!";
   const stablePassword = "NewPass123";
 
-  // Try the already-changed password first.
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(stablePassword);
-  await page.getByRole("button", { name: "Sign In" }).click();
-
-  // Already logged in with stable password.
-  try {
-    await expect(
-      page.getByRole("heading", { name: "Staff Queue" })
-    ).toBeVisible({ timeout: 3000 });
-
-    return;
-  } catch {
-    // Continue with temporary password.
-  }
-
-  // First-time login uses the temporary password.
   await page.getByLabel("Password").fill(tempPassword);
+
+  const loginResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/auth/login") &&
+      response.request().method() === "POST"
+  );
+
   await page.getByRole("button", { name: "Sign In" }).click();
+
+  const loginResponse = await loginResponsePromise;
+
 
   const changePasswordHeading = page.getByRole("heading", {
     name: "Change Password",
   });
 
-  try {
-    await expect(changePasswordHeading).toBeVisible({ timeout: 5000 });
-
+  if (await changePasswordHeading.isVisible({ timeout: 5000 }).catch(() => false)) {
     await page.getByLabel("Current Password").fill(tempPassword);
     await page.getByLabel("New Password").fill(stablePassword);
     await page.getByLabel("Confirm Password").fill(stablePassword);
+
     await page.getByRole("button", { name: "Change Password" }).click();
-  } catch {
-    // Password was already changed.
+
+    await expect(
+      page.getByRole("heading", { name: "Staff Queue" })
+    ).toBeVisible({ timeout: 10000 });
+
+    return;
+  }
+
+  // If the password was already changed, login with stable password.
+  if (await page.getByRole("heading", { name: "TokTickIT" }).isVisible().catch(() => false)) {
+    await page.getByLabel("Password").fill(stablePassword);
+
+    const secondLoginResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/v1/auth/login") &&
+        response.request().method() === "POST"
+    );
+
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    const secondLoginResponse = await secondLoginResponsePromise;
+
+   
   }
 
   await expect(
     page.getByRole("heading", { name: "Staff Queue" })
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10000 });
 }
 
 test("E2E-06 IT Staff opens ticket queue and filters tickets", async ({
@@ -67,9 +81,7 @@ test("E2E-07 IT Staff opens a ticket and views ticket controls", async ({
 }) => {
   await loginAsStaff(page);
 
-  const ticketButtons = page.locator(
-    'button.btn-link.fw-bold'
-  );
+  const ticketButtons = page.locator("button.btn-link.fw-bold");
 
   await expect(ticketButtons.first()).toBeVisible();
   await ticketButtons.first().click();

@@ -7,6 +7,162 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  isActive  Boolean  @default(true)
+  tickets   Ticket[]
+}
+
+model DevelopmentRequester {
+  id          String   @id @default(uuid())
+  displayName String
+  email       String   @unique
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tickets     Ticket[]
+}
+
+model User {
+  id                  String          @id @default(uuid())
+  displayName         String
+  email               String          @unique
+  passwordHash        String
+  roles               UserRole[]      @default([Requester])
+  isActive            Boolean         @default(true)
+  passwordState       PasswordState   @default(InitialPassword)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  removedAttachments  Attachment[]    @relation("AttachmentRemovedByUser")
+  uploadedAttachments Attachment[]    @relation("AttachmentUploadedByUser")
+  internalNotes       InternalNote[]
+  assignedTickets     Ticket[]        @relation("TicketAssignedStaffUser")
+  requestedTickets    Ticket[]        @relation("TicketRequesterUser")
+  ticketActions       TicketAction[]
+  ticketComments      TicketComment[]
+}
+
+model RelatedSystem {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id                String               @id @default(uuid())
+  ticketNo          String               @unique
+  requesterId       String
+  categoryId        Int
+  relatedSystemId   String
+  summary           String
+  description       String
+  requestedPriority RequestedPriority
+  status            TicketStatus         @default(New)
+  clientRequestId   String               @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  requesterUserId   String?
+  assignedToUserId  String?
+  itPriority        ITPriority?
+  attachments       Attachment[]
+  internalNotes     InternalNote[]
+  assignedTo        User?                @relation("TicketAssignedStaffUser", fields: [assignedToUserId], references: [id])
+  category          Category             @relation(fields: [categoryId], references: [id])
+  relatedSystem     RelatedSystem        @relation(fields: [relatedSystemId], references: [id])
+  requester         DevelopmentRequester @relation(fields: [requesterId], references: [id])
+  requesterUser     User?                @relation("TicketRequesterUser", fields: [requesterUserId], references: [id])
+  actions           TicketAction[]
+  comments          TicketComment[]
+
+  @@index([requesterId])
+  @@index([requesterUserId])
+  @@index([assignedToUserId])
+  @@index([categoryId])
+  @@index([relatedSystemId])
+  @@index([requesterId, updatedAt])
+  @@index([requesterUserId, updatedAt])
+}
+
+model TicketComment {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+model InternalNote {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
+}
+
+model TicketAction {
+  id          String   @id @default(uuid())
+  ticketId    String
+  actorUserId String
+  actionType  String
+  body        String
+  createdAt   DateTime @default(now())
+  actorUser   User     @relation(fields: [actorUserId], references: [id])
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([actorUserId])
+  @@index([actionType])
+}
+
+model Attachment {
+  id                    String    @id @default(uuid())
+  ticketId              String
+  originalFilename      String
+  storageKey            String    @unique
+  mimeType              String
+  sizeBytes             Int
+  uploadedByRequesterId String
+  isRemoved             Boolean   @default(false)
+  removedAt             DateTime?
+  removedByRequesterId  String?
+  removalReason         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  uploadedByUserId      String?
+  removedByUserId       String?
+  removedByUser         User?     @relation("AttachmentRemovedByUser", fields: [removedByUserId], references: [id])
+  ticket                Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedByUser        User?     @relation("AttachmentUploadedByUser", fields: [uploadedByUserId], references: [id])
+
+  @@index([ticketId])
+  @@index([ticketId, isRemoved])
+  @@index([uploadedByUserId])
+  @@index([removedByUserId])
+}
+
+model TicketNumberSequence {
+  year       Int      @id
+  lastNumber Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
 enum RequestedPriority {
   Low
   Medium
@@ -41,170 +197,4 @@ enum PasswordState {
   InitialPassword
   ChangeRequired
   Active
-}
-
-model Category {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  tickets Ticket[]
-}
-
-model DevelopmentRequester {
-  id          String   @id @default(uuid())
-  displayName String
-  email       String   @unique
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tickets Ticket[]
-}
-
-model User {
-  id            String        @id @default(uuid())
-  displayName   String
-  email         String        @unique
-  passwordHash  String
-  roles         UserRole[]    @default([Requester])
-  isActive      Boolean       @default(true)
-  passwordState PasswordState @default(InitialPassword)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  requestedTickets    Ticket[]        @relation("TicketRequesterUser")
-  assignedTickets     Ticket[]        @relation("TicketAssignedStaffUser")
-  uploadedAttachments Attachment[]    @relation("AttachmentUploadedByUser")
-  removedAttachments  Attachment[]    @relation("AttachmentRemovedByUser")
-  ticketComments      TicketComment[]
-  internalNotes       InternalNote[]
-  ticketActions       TicketAction[]
-}
-
-model RelatedSystem {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tickets Ticket[]
-}
-
-model Ticket {
-  id                String            @id @default(uuid())
-  ticketNo          String            @unique
-  requesterId       String
-  requesterUserId   String?
-  assignedToUserId  String?
-  categoryId        Int
-  relatedSystemId   String
-  summary           String
-  description       String
-  requestedPriority RequestedPriority
-  itPriority        ITPriority?
-  status            TicketStatus      @default(New)
-  clientRequestId   String            @unique
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  requester     DevelopmentRequester @relation(fields: [requesterId], references: [id])
-  requesterUser User?                @relation("TicketRequesterUser", fields: [requesterUserId], references: [id])
-  assignedTo    User?                @relation("TicketAssignedStaffUser", fields: [assignedToUserId], references: [id])
-  category      Category             @relation(fields: [categoryId], references: [id])
-  relatedSystem RelatedSystem        @relation(fields: [relatedSystemId], references: [id])
-
-  attachments   Attachment[]
-  comments      TicketComment[]
-  internalNotes InternalNote[]
-  actions       TicketAction[]
-
-  @@index([requesterId])
-  @@index([requesterUserId])
-  @@index([assignedToUserId])
-  @@index([categoryId])
-  @@index([relatedSystemId])
-  @@index([requesterId, updatedAt])
-  @@index([requesterUserId, updatedAt])
-}
-
-model TicketComment {
-  id        String   @id @default(uuid())
-  ticketId  String
-  authorId  String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ticket Ticket @relation(fields: [ticketId], references: [id])
-  author User   @relation(fields: [authorId], references: [id])
-
-  @@index([ticketId, createdAt])
-  @@index([authorId])
-}
-
-model InternalNote {
-  id        String   @id @default(uuid())
-  ticketId  String
-  authorId  String
-  body      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ticket Ticket @relation(fields: [ticketId], references: [id])
-  author User   @relation(fields: [authorId], references: [id])
-
-  @@index([ticketId, createdAt])
-  @@index([authorId])
-}
-
-model TicketAction {
-  id          String   @id @default(uuid())
-  ticketId    String
-  actorUserId String
-  actionType  String
-  body        String
-  createdAt   DateTime @default(now())
-
-  ticket    Ticket @relation(fields: [ticketId], references: [id])
-  actorUser User   @relation(fields: [actorUserId], references: [id])
-
-  @@index([ticketId, createdAt])
-  @@index([actorUserId])
-  @@index([actionType])
-}
-
-model Attachment {
-  id                    String    @id @default(uuid())
-  ticketId              String
-  originalFilename      String
-  storageKey            String    @unique
-  mimeType              String
-  sizeBytes             Int
-  uploadedByRequesterId String
-  uploadedByUserId      String?
-  isRemoved             Boolean   @default(false)
-  removedAt             DateTime?
-  removedByRequesterId  String?
-  removedByUserId       String?
-  removalReason         String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  ticket         Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  uploadedByUser User?  @relation("AttachmentUploadedByUser", fields: [uploadedByUserId], references: [id])
-  removedByUser  User?  @relation("AttachmentRemovedByUser", fields: [removedByUserId], references: [id])
-
-  @@index([ticketId])
-  @@index([ticketId, isRemoved])
-  @@index([uploadedByUserId])
-  @@index([removedByUserId])
-}
-
-model TicketNumberSequence {
-  year       Int      @id
-  lastNumber Int      @default(0)
-  updatedAt  DateTime @updatedAt
 }

@@ -230,13 +230,26 @@ app.post(
         });
       }
 
-      createSession(res, user.id);
+      let authenticatedUser = user;
 
-      return res.status(200).json({
-        data: {
-          user: toSafeUser(user),
-        },
-      });
+if (user.passwordState === "InitialPassword") {
+  authenticatedUser = await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      passwordState: "ChangeRequired",
+    },
+  });
+}
+
+createSession(res, authenticatedUser.id);
+
+return res.status(200).json({
+  data: {
+    user: toSafeUser(authenticatedUser),
+  },
+});
     } catch (error) {
       console.error(
         "Failed to sign in:",
@@ -573,9 +586,14 @@ app.get(
           ? req.query.search.trim()
           : "";
 
-      const role =
+            const role =
         typeof req.query.role === "string"
           ? req.query.role
+          : "";
+
+      const isActive =
+        typeof req.query.isActive === "string"
+          ? req.query.isActive
           : "";
 
       if (
@@ -612,6 +630,24 @@ app.get(
         );
       }
 
+      if (
+        isActive &&
+        isActive !== "true" &&
+        isActive !== "false"
+      ) {
+        return sendAdminValidationError(
+          res,
+          "isActive is invalid.",
+          [
+            {
+              field: "isActive",
+              message:
+                "isActive must be true or false.",
+            },
+          ]
+        );
+      }
+
       const where: Prisma.UserWhereInput = {};
 
       if (search) {
@@ -641,6 +677,11 @@ app.get(
         };
       }
 
+      if (isActive) {
+        where.isActive =
+          isActive === "true";
+      }
+
       const totalItems =
         await prisma.user.count({
           where,
@@ -657,7 +698,6 @@ app.get(
             pageSize,
           take: pageSize,
         });
-
       return res.status(200).json({
         data: users.map(
           (user) =>

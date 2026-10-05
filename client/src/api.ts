@@ -11,6 +11,22 @@ export type PasswordState =
   | "ChangeRequired"
   | "Active";
 
+export interface AdminUser {
+  id: string;
+  displayName: string;
+  email: string;
+  roles: UserRole[];
+  isActive: boolean;
+  passwordState: PasswordState;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AuthResponse {
+  data: {
+    user: AuthenticatedUser;
+  };
+}
 export interface AuthenticatedUser {
   id: string;
   displayName: string;
@@ -19,13 +35,6 @@ export interface AuthenticatedUser {
   isActive: boolean;
   passwordState: PasswordState;
 }
-
-interface AuthResponse {
-  data: {
-    user: AuthenticatedUser;
-  };
-}
-
 export async function login(
   email: string,
   password: string
@@ -49,7 +58,8 @@ export async function login(
     throw new Error("Email or password is incorrect.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -66,7 +76,8 @@ export async function getCurrentUser(): Promise<AuthenticatedUser> {
     throw new Error("Authentication required.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -110,7 +121,8 @@ export async function changePassword(
     throw new Error("Unable to change password.");
   }
 
-  const result: AuthResponse = await response.json();
+  const result: AuthResponse =
+    await response.json();
 
   return result.data.user;
 }
@@ -746,12 +758,18 @@ export interface StaffAssignee extends StaffActor {}
 
 export class ApiRequestError extends Error {
   status: number;
-  fieldErrors: { field: string; message: string }[];
+  fieldErrors: {
+    field: string;
+    message: string;
+  }[];
 
   constructor(
     status: number,
     message: string,
-    fieldErrors: { field: string; message: string }[] = []
+    fieldErrors: {
+      field: string;
+      message: string;
+    }[] = []
   ) {
     super(message);
     this.name = "ApiRequestError";
@@ -764,7 +782,9 @@ async function getApiError(
   response: Response,
   fallbackMessage: string
 ) {
-  const result = await response.json().catch(() => null);
+  const result =
+    await response.json().catch(() => null);
+
   const error = result?.error;
 
   return new ApiRequestError(
@@ -783,30 +803,48 @@ async function staffRequest<T>(
   init: RequestInit = {},
   fallbackMessage: string
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${API_URL}${path}`,
+    {
+      ...init,
+      credentials: "include",
+    }
+  );
 
   if (!response.ok) {
-    throw await getApiError(response, fallbackMessage);
+    throw await getApiError(
+      response,
+      fallbackMessage
+    );
   }
 
-  const result: { data: T } = await response.json();
+  const result: { data: T } =
+    await response.json();
+
   return result.data;
 }
 
-function staffQueryString(query: StaffTicketQuery) {
+function staffQueryString(
+  query: StaffTicketQuery
+) {
   const params = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== "") {
+  for (const [key, value] of Object.entries(
+    query
+  )) {
+    if (
+      value !== undefined &&
+      value !== ""
+    ) {
       params.set(key, String(value));
     }
   }
 
   const value = params.toString();
-  return value ? `?${value}` : "";
+
+  return value
+    ? `?${value}`
+    : "";
 }
 
 export async function getStaffTickets(
@@ -816,8 +854,12 @@ export async function getStaffTickets(
   meta: StaffTicketMeta;
 }> {
   const response = await fetch(
-    `${API_URL}/api/v1/staff/tickets${staffQueryString(query)}`,
-    { credentials: "include" }
+    `${API_URL}/api/v1/staff/tickets${staffQueryString(
+      query
+    )}`,
+    {
+      credentials: "include",
+    }
   );
 
   if (!response.ok) {
@@ -830,7 +872,9 @@ export async function getStaffTickets(
   return response.json();
 }
 
-export function getStaffAssignees(): Promise<StaffAssignee[]> {
+export function getStaffAssignees(): Promise<
+  StaffAssignee[]
+> {
   return staffRequest(
     "/api/v1/staff/assignees",
     {},
@@ -856,7 +900,9 @@ export function claimStaffTicket(
 }> {
   return staffRequest(
     `/api/v1/staff/tickets/${ticketId}/claim`,
-    { method: "POST" },
+    {
+      method: "POST",
+    },
     "Unable to claim Ticket."
   );
 }
@@ -872,8 +918,12 @@ export function updateStaffAssignment(
     `/api/v1/staff/tickets/${ticketId}/assignment`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignedToUserId }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assignedToUserId,
+      }),
     },
     "Unable to update Ticket assignment."
   );
@@ -890,8 +940,12 @@ export function updateStaffITPriority(
     `/api/v1/staff/tickets/${ticketId}/it-priority`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itPriority }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        itPriority,
+      }),
     },
     "Unable to update IT Priority."
   );
@@ -909,8 +963,13 @@ export function updateStaffStatus(
     `/api/v1/staff/tickets/${ticketId}/status`,
     {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, reason }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        status,
+        reason,
+      }),
     },
     "Unable to update Ticket status."
   );
@@ -924,8 +983,12 @@ export function addStaffAction(
     `/api/v1/staff/tickets/${ticketId}/actions`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the action."
   );
@@ -939,8 +1002,12 @@ export function addStaffInternalNote(
     `/api/v1/staff/tickets/${ticketId}/internal-notes`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the internal note."
   );
@@ -954,10 +1021,36 @@ export function addPublicComment(
     `/api/v1/tickets/${ticketId}/comments`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        body,
+      }),
     },
     "Unable to save the public comment."
+  );
+}
+
+/* =========================================================
+   Lab 3 - IT Staff Attachments
+   ========================================================= */
+
+export async function uploadStaffTicketAttachment(
+  ticketId: string,
+  file: File
+): Promise<StaffTicketAttachment> {
+  const formData = new FormData();
+
+  formData.append("file", file);
+
+  return staffRequest(
+    `/api/v1/staff/tickets/${ticketId}/attachments`,
+    {
+      method: "POST",
+      body: formData,
+    },
+    "Unable to upload Attachment."
   );
 }
 
@@ -967,7 +1060,9 @@ export async function downloadStaffTicketAttachment(
 ): Promise<Blob> {
   const response = await fetch(
     `${API_URL}/api/v1/staff/tickets/${ticketId}/attachments/${attachmentId}/download`,
-    { credentials: "include" }
+    {
+      credentials: "include",
+    }
   );
 
   if (!response.ok) {
@@ -978,4 +1073,175 @@ export async function downloadStaffTicketAttachment(
   }
 
   return response.blob();
+}
+export interface AdminUser {
+  id: string;
+  displayName: string;
+  email: string;
+  roles: UserRole[];
+  isActive: boolean;
+  passwordState: PasswordState;
+  createdAt: string;
+}
+
+export interface AdminUserMeta {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface AdminUsersResponse {
+  data: AdminUser[];
+  meta: AdminUserMeta;
+}
+
+export interface AdminUsersQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  role?: UserRole;
+  isActive?: boolean;
+}
+
+export async function getAdminUsers(
+  query: AdminUsersQuery = {}
+): Promise<AdminUsersResponse> {
+  const params = new URLSearchParams();
+
+  if (query.page !== undefined) {
+    params.set("page", String(query.page));
+  }
+
+  if (query.pageSize !== undefined) {
+    params.set("pageSize", String(query.pageSize));
+  }
+
+  if (query.search) {
+    params.set("search", query.search);
+  }
+
+  if (query.role) {
+    params.set("role", query.role);
+  }
+
+  if (query.isActive !== undefined) {
+    params.set("isActive", String(query.isActive));
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/v1/admin/users?${params.toString()}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to load administrator users."
+    );
+  }
+
+  return response.json();
+}
+export interface CreateAdminUserInput {
+  displayName: string;
+  email: string;
+  role: UserRole;
+  password: string;
+}
+
+export async function createAdminUser(
+  input: CreateAdminUserInput
+)
+: Promise<AdminUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/admin/users`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(input),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+
+    throw new Error(
+      body?.error?.message ??
+        "Unable to create user."
+    );
+  }
+
+  const result = await response.json();
+
+  return result.data;
+}
+export async function updateAdminUser(
+  userId: string,
+  input: {
+    displayName?: string;
+    email?: string;
+    role?: UserRole;
+    isActive?: boolean;
+  }
+): Promise<AdminUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/admin/users/${userId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(input),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+
+    throw new Error(
+      body?.error?.message ??
+        "Unable to update user."
+    );
+  }
+
+  const result = await response.json();
+
+  return result.data;
+}
+export async function setAdminUserInitialPassword(
+  userId: string,
+  password: string
+): Promise<AdminUser> {
+  const response = await fetch(
+    `${API_URL}/api/v1/admin/users/${userId}/password`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        password,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+
+    throw new Error(
+      body?.error?.message ??
+        "Unable to set user password."
+    );
+  }
+
+  const result = await response.json();
+
+  return result.data;
 }

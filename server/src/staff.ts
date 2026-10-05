@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { attachmentStorage } from "./attachments/storage.js";
+import { attachmentUploadMiddleware } from "./attachments/upload.js";
 import { getPrisma } from "./prisma.js";
 import {
   getAuthenticatedUser,
@@ -39,8 +41,8 @@ const allowedTransitions: Record<
     "Cancelled",
   ],
   WaitingForRequester: ["InProgress", "Resolved"],
-  Resolved: ["Closed", "Reopened"],
-  Closed: [],
+  Resolved: ["Closed"],
+  Closed: ["Reopened"],
   Reopened: ["InProgress"],
   Cancelled: [],
 };
@@ -629,7 +631,131 @@ export function registerStaffRoutes(app: Express) {
       }
     }
   );
+app.post(
+  "/api/v1/staff/tickets/:ticketId/attachments",
+  attachmentUploadMiddleware,
+  async (req: Request, res: Response) => {
+    try {
+      const staffUser = await requireStaffUser(req, res);
 
+      if (!staffUser) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const ticketId = req.params.ticketId;
+
+      const ticket = await prisma.ticket.findUnique({
+  where: {
+    id: ticketId,
+  },
+  select: {
+    id: true,
+    requesterUserId: true,
+  },
+});
+
+      if (!ticket) {
+        return sendTicketNotFound(res);
+      }
+
+      if (!req.file) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_REQUIRED",
+            message: "Select a file to upload.",
+            fieldErrors: [],
+          },
+        });
+      }
+      if (!ticket.requesterUserId) {
+  return res.status(422).json({
+    error: {
+      code: "TICKET_REQUESTER_REQUIRED",
+      message: "The Ticket must have a Requester.",
+      fieldErrors: [],
+    },
+  });
+}
+
+      const activeAttachmentCount =
+        await prisma.attachment.count({
+          where: {
+            ticketId,
+            isRemoved: false,
+          },
+        });
+
+      if (activeAttachmentCount >= 5) {
+        return res.status(422).json({
+          error: {
+            code: "ATTACHMENT_LIMIT_REACHED",
+            message:
+              "A Ticket may contain no more than five active Attachments.",
+            fieldErrors: [],
+          },
+        });
+      }
+
+      const storageKey = randomUUID();
+
+      await attachmentStorage.save(
+        storageKey,
+        req.file.buffer,
+        req.file.mimetype
+      );
+
+      try {
+        const attachment =
+          await prisma.attachment.create({
+            data: {
+  ticketId,
+  originalFilename: req.file.originalname,
+  storageKey,
+  mimeType: req.file.mimetype,
+  sizeBytes: req.file.size,
+  uploadedByRequesterId: ticket.requesterUserId,
+  uploadedByUserId: staffUser.id,
+  isRemoved: false,
+},
+          });
+
+        return res.status(201).json({
+          data: {
+            id: attachment.id,
+            ticketId: attachment.ticketId,
+            originalFilename:
+              attachment.originalFilename,
+            mimeType: attachment.mimeType,
+            sizeBytes: attachment.sizeBytes,
+            isRemoved: attachment.isRemoved,
+            createdAt: attachment.createdAt,
+          },
+        });
+      } catch (error) {
+        await attachmentStorage.remove(storageKey);
+        throw error;
+      }
+    } catch (error) {
+      console.error(
+        "Failed to upload staff Attachment:",
+        error
+      );
+
+      if (res.headersSent) {
+        return;
+      }
+
+      return res.status(500).json({
+        error: {
+          code: "STAFF_ATTACHMENT_UPLOAD_FAILED",
+          message: "Unable to upload Attachment.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
   app.get(
     "/api/v1/staff/tickets/:ticketId/attachments/:attachmentId/download",
     async (req: Request, res: Response) => {
