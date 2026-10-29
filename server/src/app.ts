@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { attachmentStorage } from "./attachments/storage.js";
 import { attachmentUploadMiddleware } from "./attachments/upload.js";
+import { registerActionsTakenRoutes } from "./actions-taken.js";
 import {
   getAuthenticatedUser,
   sendAuthenticationRequired,
@@ -33,6 +34,7 @@ app.use(
 app.use(express.json());
 
 registerStaffRoutes(app);
+registerActionsTakenRoutes(app);
 
 // ---------------------------------------------------------------------------
 // Shared authorization helpers
