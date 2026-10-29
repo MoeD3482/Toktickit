@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+
 import ChangePassword from "./components/ChangePassword.js";
 import CreateTicket from "./components/CreateTicket.js";
 import Login from "./components/Login.js";
 import MyTickets from "./components/MyTickets.js";
+import RequesterDashboard from "./components/RequesterDashboard.js";
 import RequesterTicketDetail from "./components/RequesterTicketDetail.js";
 import StaffQueue from "./components/StaffQueue.js";
 import StaffTicketDetail from "./components/StaffTicketDetail.js";
@@ -16,6 +18,7 @@ import {
 } from "./api.js";
 
 type ActivePage =
+  | "dashboard"
   | "create"
   | "tickets"
   | "staff-queue"
@@ -35,7 +38,7 @@ export default function App() {
     useState<AuthenticatedUser | null>(null);
 
   const [activePage, setActivePage] =
-    useState<ActivePage>("create");
+    useState<ActivePage>("dashboard");
 
   const [selectedTicketId, setSelectedTicketId] =
     useState<string | null>(null);
@@ -50,22 +53,12 @@ export default function App() {
 
         setCurrentUser(user);
 
-        if (
-          user.roles.includes(
-            "Administrator"
-          )
-        ) {
-          setActivePage(
-            "user-management"
-          );
-        } else if (
-          user.roles.includes(
-            "ITStaff"
-          )
-        ) {
+        if (user.roles.includes("Administrator")) {
+          setActivePage("user-management");
+        } else if (user.roles.includes("ITStaff")) {
           setActivePage("staff-queue");
         } else {
-          setActivePage("create");
+          setActivePage("dashboard");
         }
 
         setAuthState("authenticated");
@@ -75,44 +68,34 @@ export default function App() {
       }
     }
 
-    loadCurrentUser();
+    void loadCurrentUser();
   }, []);
 
   async function handleLogout() {
     try {
       await logout();
     } catch {
-      // Leave the authenticated UI even if the session already expired.
+      // The UI still returns to the login screen if the session expired.
     }
 
     setCurrentUser(null);
     setSelectedTicketId(null);
     setSelectedStaffTicketId(null);
-    setActivePage("create");
+    setActivePage("dashboard");
     setAuthState("anonymous");
   }
 
-  function handleAuthenticated(
-    user: AuthenticatedUser
-  ) {
+  function handleAuthenticated(user: AuthenticatedUser) {
     setCurrentUser(user);
     setSelectedTicketId(null);
     setSelectedStaffTicketId(null);
 
-    if (
-      user.roles.includes(
-        "Administrator"
-      )
-    ) {
-      setActivePage(
-        "user-management"
-      );
-    } else if (
-      user.roles.includes("ITStaff")
-    ) {
+    if (user.roles.includes("Administrator")) {
+      setActivePage("user-management");
+    } else if (user.roles.includes("ITStaff")) {
       setActivePage("staff-queue");
     } else {
-      setActivePage("create");
+      setActivePage("dashboard");
     }
 
     setAuthState("authenticated");
@@ -121,60 +104,44 @@ export default function App() {
   if (authState === "checking") {
     return (
       <div className="container py-5">
-        <p role="status">
-          Checking authentication...
-        </p>
+        <p role="status">Checking authentication...</p>
       </div>
     );
   }
 
-  if (
-    authState === "anonymous" ||
-    !currentUser
-  ) {
-    return (
-      <Login
-        onLogin={handleAuthenticated}
-      />
-    );
+  if (authState === "anonymous" || !currentUser) {
+    return <Login onLogin={handleAuthenticated} />;
   }
 
-  if (
-    currentUser.passwordState ===
-    "ChangeRequired"
-  ) {
+  if (currentUser.passwordState === "ChangeRequired") {
     return (
       <ChangePassword
         user={currentUser}
-        onPasswordChanged={
-          handleAuthenticated
-        }
+        onPasswordChanged={handleAuthenticated}
       />
     );
   }
 
-  const currentRequester: DevelopmentRequester =
-    {
-      id: currentUser.id,
-      displayName:
-        currentUser.displayName,
-      email: currentUser.email,
-    };
+  const currentRequester: DevelopmentRequester = {
+    id: currentUser.id,
+    displayName: currentUser.displayName,
+    email: currentUser.email,
+  };
 
   const canUseRequesterWorkflow =
-    currentUser.roles.includes(
-      "Requester"
-    );
+    currentUser.roles.includes("Requester");
 
   const canUseStaffWorkflow =
-    currentUser.roles.includes(
-      "ITStaff"
-    );
+    currentUser.roles.includes("ITStaff");
 
   const canUseAdminWorkflow =
-    currentUser.roles.includes(
-      "Administrator"
-    );
+    currentUser.roles.includes("Administrator");
+
+  function openRequesterPage(page: "dashboard" | "tickets" | "create") {
+    setActivePage(page);
+    setSelectedTicketId(null);
+    setSelectedStaffTicketId(null);
+  }
 
   return (
     <div
@@ -183,21 +150,13 @@ export default function App() {
     >
       <div className="zen-app-header d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 mb-1">
-            TokTickIT
-          </h1>
+          <h1 className="h3 mb-1">TokTickIT</h1>
 
           <p className="mb-0">
             Current user:{" "}
-            <strong>
-              {currentUser.displayName}
-            </strong>{" "}
+            <strong>{currentUser.displayName}</strong>{" "}
             <span className="text-muted">
-              (
-              {currentUser.roles.join(
-                ", "
-              )}
-              )
+              ({currentUser.roles.join(", ")})
             </span>
           </p>
         </div>
@@ -208,22 +167,23 @@ export default function App() {
               <button
                 type="button"
                 className={
-                  activePage ===
-                  "tickets"
+                  activePage === "dashboard"
                     ? "btn btn-success"
                     : "btn btn-outline-success"
                 }
-                onClick={() => {
-                  setActivePage(
-                    "tickets"
-                  );
-                  setSelectedTicketId(
-                    null
-                  );
-                  setSelectedStaffTicketId(
-                    null
-                  );
-                }}
+                onClick={() => openRequesterPage("dashboard")}
+              >
+                Dashboard
+              </button>
+
+              <button
+                type="button"
+                className={
+                  activePage === "tickets"
+                    ? "btn btn-success"
+                    : "btn btn-outline-success"
+                }
+                onClick={() => openRequesterPage("tickets")}
               >
                 My Tickets
               </button>
@@ -231,22 +191,11 @@ export default function App() {
               <button
                 type="button"
                 className={
-                  activePage ===
-                  "create"
+                  activePage === "create"
                     ? "btn btn-success"
                     : "btn btn-outline-success"
                 }
-                onClick={() => {
-                  setActivePage(
-                    "create"
-                  );
-                  setSelectedTicketId(
-                    null
-                  );
-                  setSelectedStaffTicketId(
-                    null
-                  );
-                }}
+                onClick={() => openRequesterPage("create")}
               >
                 Create Ticket
               </button>
@@ -257,21 +206,14 @@ export default function App() {
             <button
               type="button"
               className={
-                activePage ===
-                "staff-queue"
+                activePage === "staff-queue"
                   ? "btn btn-success"
                   : "btn btn-outline-success"
               }
               onClick={() => {
-                setActivePage(
-                  "staff-queue"
-                );
-                setSelectedTicketId(
-                  null
-                );
-                setSelectedStaffTicketId(
-                  null
-                );
+                setActivePage("staff-queue");
+                setSelectedTicketId(null);
+                setSelectedStaffTicketId(null);
               }}
             >
               Staff Queue
@@ -282,21 +224,14 @@ export default function App() {
             <button
               type="button"
               className={
-                activePage ===
-                "user-management"
+                activePage === "user-management"
                   ? "btn btn-success"
                   : "btn btn-outline-success"
               }
               onClick={() => {
-                setActivePage(
-                  "user-management"
-                );
-                setSelectedTicketId(
-                  null
-                );
-                setSelectedStaffTicketId(
-                  null
-                );
+                setActivePage("user-management");
+                setSelectedTicketId(null);
+                setSelectedStaffTicketId(null);
               }}
             >
               User Management
@@ -314,16 +249,11 @@ export default function App() {
       </div>
 
       {canUseAdminWorkflow &&
-        activePage ===
-          "user-management" && (
+        activePage === "user-management" && (
           <UserManagement
-            onCreateUser={() =>
-              setActivePage(
-                "create-user"
-              )
-            }
+            onCreateUser={() => setActivePage("create-user")}
             onEditUser={() => {
-              // Edit workflow can be wired here later.
+              // Keep the existing edit workflow behavior.
             }}
           />
         )}
@@ -331,21 +261,14 @@ export default function App() {
       {canUseAdminWorkflow &&
         activePage === "create-user" && (
           <section>
-            <h1>Create User</h1>
+            <h2 className="h4">Create User</h2>
 
-            <p>
-              Create a new TokTickIT
-              user account.
-            </p>
+            <p>Create a new TokTickIT user account.</p>
 
             <button
               type="button"
               className="btn btn-outline-secondary"
-              onClick={() =>
-                setActivePage(
-                  "user-management"
-                )
-              }
+              onClick={() => setActivePage("user-management")}
             >
               Back to User Management
             </button>
@@ -356,8 +279,7 @@ export default function App() {
         !canUseStaffWorkflow &&
         !canUseAdminWorkflow && (
           <div className="alert alert-info">
-            No workflow is available
-            for this role yet.
+            No workflow is available for this role yet.
           </div>
         )}
 
@@ -365,45 +287,37 @@ export default function App() {
         <>
           {selectedTicketId ? (
             <RequesterTicketDetail
-              requester={
-                currentRequester
-              }
-              ticketId={
-                selectedTicketId
-              }
+              requester={currentRequester}
+              ticketId={selectedTicketId}
               onBack={() => {
-                setSelectedTicketId(
-                  null
-                );
-                setActivePage(
-                  "tickets"
-                );
+                setSelectedTicketId(null);
+                setActivePage("tickets");
               }}
             />
           ) : (
             <>
-              {activePage ===
-                "create" && (
-                <CreateTicket
-                  requester={
-                    currentRequester
-                  }
+              {activePage === "dashboard" && (
+                <RequesterDashboard
+                  onSelectTicket={(ticketId) => {
+                    setSelectedTicketId(ticketId);
+                  }}
+                  onViewAllTickets={() => {
+                    setSelectedTicketId(null);
+                    setActivePage("tickets");
+                  }}
                 />
               )}
 
-              {activePage ===
-                "tickets" && (
+              {activePage === "create" && (
+                <CreateTicket requester={currentRequester} />
+              )}
+
+              {activePage === "tickets" && (
                 <MyTickets
-                  requester={
-                    currentRequester
-                  }
-                  onSelectTicket={(
-                    ticketId
-                  ) =>
-                    setSelectedTicketId(
-                      ticketId
-                    )
-                  }
+                  requester={currentRequester}
+                  onSelectTicket={(ticketId) => {
+                    setSelectedTicketId(ticketId);
+                  }}
                 />
               )}
             </>
@@ -412,29 +326,20 @@ export default function App() {
       )}
 
       {canUseStaffWorkflow &&
-        activePage ===
-          "staff-queue" && (
+        activePage === "staff-queue" && (
           <>
             {selectedStaffTicketId ? (
               <StaffTicketDetail
-                ticketId={
-                  selectedStaffTicketId
-                }
-                onBack={() =>
-                  setSelectedStaffTicketId(
-                    null
-                  )
-                }
+                ticketId={selectedStaffTicketId}
+                onBack={() => {
+                  setSelectedStaffTicketId(null);
+                }}
               />
             ) : (
               <StaffQueue
-                onSelectTicket={(
-                  ticketId
-                ) =>
-                  setSelectedStaffTicketId(
-                    ticketId
-                  )
-                }
+                onSelectTicket={(ticketId) => {
+                  setSelectedStaffTicketId(ticketId);
+                }}
               />
             )}
           </>

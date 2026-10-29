@@ -451,7 +451,56 @@ export async function getMyTickets(
 
   return result;
 }
+export interface RequesterDashboardTicket {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  status: TicketStatus;
+  requestedPriority: RequestedPriority;
+  itPriority: ITPriority | null;
+  createdAt: string;
+  updatedAt: string;
+  category: {
+    name: string;
+  };
+  relatedSystem: {
+    name: string;
+  };
+}
 
+export interface RequesterDashboard {
+  openTicketCount: number;
+  waitingForRequesterCount: number;
+  recentlyUpdatedCount: number;
+  recentlyResolvedCount: number;
+  recentTickets: RequesterDashboardTicket[];
+  attentionRequiredTickets: RequesterDashboardTicket[];
+}
+
+interface RequesterDashboardResponse {
+  data: RequesterDashboard;
+}
+
+export async function getRequesterDashboard():
+  Promise<RequesterDashboard> {
+  const response = await fetch(
+    `${API_URL}/api/v1/requester/dashboard`,
+    {
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to load Requester Dashboard",
+    );
+  }
+
+  const result: RequesterDashboardResponse =
+    await response.json();
+
+  return result.data;
+}
 export interface TicketDetail {
   id: string;
   ticketNo: string;

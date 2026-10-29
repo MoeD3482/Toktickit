@@ -1596,7 +1596,155 @@ app.get(
     }
   }
 );
+// ---------------------------------------------------------------------------
+// Lab 4 - Requester Dashboard
+// GET /api/v1/requester/dashboard
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/v1/requester/dashboard",
+  async (req: Request, res: Response) => {
+    try {
+      const requesterContext = await getRequesterContext(
+        req,
+        res,
+      );
 
+      if (!requesterContext) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const now = new Date();
+      const recentSince = new Date(
+        now.getTime() - 30 * 24 * 60 * 60 * 1000,
+      );
+
+      const ticketScope: Prisma.TicketWhereInput = {
+        requesterUserId:
+          requesterContext.requesterUserId,
+      };
+
+      const openStatuses = [
+        "New",
+        "InProgress",
+        "WaitingForRequester",
+        "Reopened",
+      ] as const;
+
+      const [
+        openTicketCount,
+        waitingForRequesterCount,
+        recentlyUpdatedCount,
+        recentlyResolvedCount,
+        recentTickets,
+        attentionRequiredTickets,
+      ] = await Promise.all([
+        prisma.ticket.count({
+          where: {
+            ...ticketScope,
+            status: { in: [...openStatuses] },
+          },
+        }),
+
+        prisma.ticket.count({
+          where: {
+            ...ticketScope,
+            status: "WaitingForRequester",
+          },
+        }),
+
+        prisma.ticket.count({
+          where: {
+            ...ticketScope,
+            updatedAt: { gte: recentSince },
+          },
+        }),
+
+        prisma.ticket.count({
+          where: {
+            ...ticketScope,
+            status: { in: ["Resolved", "Closed"] },
+            updatedAt: { gte: recentSince },
+          },
+        }),
+
+        prisma.ticket.findMany({
+          where: {
+            ...ticketScope,
+            updatedAt: { gte: recentSince },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            ticketNo: true,
+            summary: true,
+            status: true,
+            requestedPriority: true,
+            itPriority: true,
+            createdAt: true,
+            updatedAt: true,
+            category: {
+              select: { name: true },
+            },
+            relatedSystem: {
+              select: { name: true },
+            },
+          },
+        }),
+
+        prisma.ticket.findMany({
+          where: {
+            ...ticketScope,
+            status: "WaitingForRequester",
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            ticketNo: true,
+            summary: true,
+            status: true,
+            requestedPriority: true,
+            itPriority: true,
+            createdAt: true,
+            updatedAt: true,
+            category: {
+              select: { name: true },
+            },
+            relatedSystem: {
+              select: { name: true },
+            },
+          },
+        }),
+      ]);
+
+      return res.status(200).json({
+        data: {
+          openTicketCount,
+          waitingForRequesterCount,
+          recentlyUpdatedCount,
+          recentlyResolvedCount,
+          recentTickets,
+          attentionRequiredTickets,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Failed to retrieve Requester Dashboard:",
+        error,
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "REQUESTER_DASHBOARD_FAILED",
+          message: "Unable to retrieve Requester Dashboard.",
+          fieldErrors: [],
+        },
+      });
+    }
+  },
+);
 // ---------------------------------------------------------------------------
 // Lab 3 - Requester My Tickets
 // GET /api/v1/tickets

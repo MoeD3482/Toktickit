@@ -1,3 +1,4 @@
+﻿import { LAB2_TEST_REQUESTER_PREFIX } from "../helpers/lab2-test-requesters.js";
 import { afterEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { randomUUID } from "crypto";
@@ -81,7 +82,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -116,7 +117,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -140,7 +141,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
   it("rejects an Attachment larger than 5 MB", async () => {
     const requester =
       await getPrisma().developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -174,7 +175,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -217,7 +218,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -263,7 +264,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
   it("downloads an active Attachment owned by the Requester", async () => {
     const requester =
       await getPrisma().developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -307,7 +308,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -367,7 +368,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
   it("does not allow downloading a soft-removed Attachment", async () => {
     const requester =
       await getPrisma().developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
@@ -419,7 +420,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
 
     const requesters =
       await prisma.developmentRequester.findMany({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
         take: 2,
       });
 
@@ -468,7 +469,7 @@ describe("POST /api/v1/tickets/:id/attachments", () => {
   it("rejects Attachment removal when the reason is missing", async () => {
     const requester =
       await getPrisma().developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const ticket = await createTestTicket(
