@@ -2002,7 +2002,50 @@ export function registerStaffRoutes(
             ]
           );
         }
+                if (status === "Resolved") {
+          const latestAction =
+            await prisma.actionTaken.findFirst({
+              where: {
+                ticketId: ticket.id,
+              },
+              orderBy: [
+                { actionAt: "desc" },
+                { createdAt: "desc" },
+              ],
+              select: {
+                id: true,
+                followUpRequired: true,
+              },
+            });
 
+          if (!latestAction) {
+            return sendValidationError(
+              res,
+              "Ticket cannot be resolved.",
+              [
+                {
+                  field: "status",
+                  message:
+                    "Create an Action Taken before resolving this Ticket.",
+                },
+              ],
+            );
+          }
+
+          if (latestAction.followUpRequired) {
+            return sendValidationError(
+              res,
+              "Ticket cannot be resolved.",
+              [
+                {
+                  field: "status",
+                  message:
+                    "Complete the required follow-up before resolving this Ticket.",
+                },
+              ],
+            );
+          }
+        }
         const actionBody =
           `Status changed from ${statusLabel(
             ticket.status
