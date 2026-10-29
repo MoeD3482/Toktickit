@@ -1,0 +1,267 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
+import request from "supertest";
+import { randomUUID } from "node:crypto";
+import type { UserRole } from "@prisma/client";
+import { app } from "../../src/app.js";
+import { hashPassword } from "../../src/auth/password.js";
+import { clearSessionsForTests } from "../../src/auth/session.js";
+import { getPrisma } from "../../src/prisma.js";
+
+const emailPrefix = "lab4-resolution-";
+const ticketPrefix = "LAB4-RESOLUTION-";
+const TEST_PASSWORD = "CurrentPass123";
+
+async function cleanupFixtures() {
+  clearSessionsForTests();
+
+  const prisma = getPrisma();
+  const ticketWhere = {
+    ticket: {
+      ticketNo: {
+        startsWith: ticketPrefix,
+      },
+    },
+  };
+
+  await prisma.actionTaken.deleteMany({ where: ticketWhere });
+  await prisma.ticketAction.deleteMany({ where: ticketWhere });
+  await prisma.ticketComment.deleteMany({ where: ticketWhere });
+  await prisma.internalNote.deleteMany({ where: ticketWhere });
+
+  await prisma.ticket.deleteMany({
+    where: {
+      ticketNo: {
+        startsWith: ticketPrefix,
+      },
+    },
+  });
+
+  await prisma.developmentRequester.deleteMany({
+    where: {
+      email: {
+        startsWith: emailPrefix,
+      },
+    },
+  });
+
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        startsWith: emailPrefix,
+      },
+    },
+  });
+}
+
+async function createUser(options: {
+  displayName: string;
+  roles: UserRole[];
+  requesterProfile?: boolean;
+}) {
+  const prisma = getPrisma();
+  const email = `${emailPrefix}${randomUUID()}@example.com`;
+
+  const user = await prisma.user.create({
+    data: {
+      displayName: options.displayName,
+      email,
+      passwordHash: await hashPassword(TEST_PASSWORD),
+      roles: options.roles,
+      isActive: true,
+      passwordState: "Active",
+    },
+  });
+
+  if (options.requesterProfile) {
+    await prisma.developmentRequester.create({
+      data: {
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        isActive: true,
+      },
+    });
+  }
+
+  return user;
+}
+
+async function createTicket(requesterId: string) {
+  const prisma = getPrisma();
+
+  const category = await prisma.category.findFirstOrThrow({
+    where: { isActive: true },
+  });
+
+  const relatedSystem = await prisma.relatedSystem.findFirstOrThrow({
+    where: { isActive: true },
+  });
+
+  return prisma.ticket.create({
+    data: {
+      ticketNo: `${ticketPrefix}${randomUUID()}`,
+      requesterId,
+      requesterUserId: requesterId,
+      categoryId: category.id,
+      relatedSystemId: relatedSystem.id,
+      summary: "Resolution gate test ticket",
+      description: "Ticket used to test resolution requirements.",
+      requestedPriority: "High",
+      status: "New",
+      clientRequestId: randomUUID(),
+    },
+  });
+}
+
+async function signIn(email: string) {
+  const agent = request.agent(app);
+
+  const response = await agent.post("/api/v1/auth/login").send({
+    email,
+    password: TEST_PASSWORD,
+  });
+
+  expect(response.status).toBe(200);
+  return agent;
+}
+
+async function moveToInProgress(
+  agent: ReturnType<typeof request.agent>,
+  ticketId: string,
+) {
+  const response = await agent
+    .patch(`/api/v1/staff/tickets/${ticketId}/status`)
+    .send({ status: "InProgress" });
+
+  expect(response.status).toBe(200);
+}
+
+async function resolveTicket(
+  agent: ReturnType<typeof request.agent>,
+  ticketId: string,
+) {
+  return agent
+    .patch(`/api/v1/staff/tickets/${ticketId}/status`)
+    .send({ status: "Resolved" });
+}
+
+describe.sequential("Lab 4 Ticket resolution gate", () => {
+  beforeEach(cleanupFixtures);
+  afterEach(cleanupFixtures);
+
+  it("rejects resolution when no Action Taken exists", async () => {
+    const requester = await createUser({
+      displayName: "No Action Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "No Action Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    await moveToInProgress(agent, ticket.id);
+
+    const response = await resolveTicket(agent, ticket.id);
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+
+    const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
+      where: { id: ticket.id },
+    });
+
+    expect(savedTicket.status).toBe("InProgress");
+  });
+
+  it("rejects resolution when the latest Action Taken requires follow-up", async () => {
+    const requester = await createUser({
+      displayName: "Follow-up Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Follow-up Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+
+    await getPrisma().actionTaken.create({
+      data: {
+        ticketId: ticket.id,
+        performedByUserId: staff.id,
+        actionAt: new Date(),
+        description: "Investigated the issue",
+        result: "Restart verification is still needed",
+        followUpRequired: true,
+        followUpNote: "Verify after restart",
+      },
+    });
+
+    const agent = await signIn(staff.email);
+    await moveToInProgress(agent, ticket.id);
+
+    const response = await resolveTicket(agent, ticket.id);
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+
+    const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
+      where: { id: ticket.id },
+    });
+
+    expect(savedTicket.status).toBe("InProgress");
+  });
+
+  it("allows resolution when an Action Taken exists and no follow-up is required", async () => {
+    const requester = await createUser({
+      displayName: "Ready Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Ready Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+
+    await getPrisma().actionTaken.create({
+      data: {
+        ticketId: ticket.id,
+        performedByUserId: staff.id,
+        actionAt: new Date(),
+        description: "Resolved the reported issue",
+        result: "Service restored and verified",
+        followUpRequired: false,
+      },
+    });
+
+    const agent = await signIn(staff.email);
+    await moveToInProgress(agent, ticket.id);
+
+    const response = await resolveTicket(agent, ticket.id);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe("Resolved");
+
+    const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
+      where: { id: ticket.id },
+    });
+
+    expect(savedTicket.status).toBe("Resolved");
+  });
+});
