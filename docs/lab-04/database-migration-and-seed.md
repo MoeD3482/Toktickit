@@ -187,3 +187,13 @@ The migration and seed implementation must not break existing Lab 1–3 function
 Existing users, tickets, attachments, comments, and other historical records must remain available.
 
 Existing tickets without Actions Taken records remain valid.
+## 9. Current Database Integrity Verification
+
+The migration verification script is located at:
+
+`server/prisma/verify-action-taken-migration.ts`
+
+Run it from the server directory:
+
+```powershell
+npx tsx prisma/verify-action-taken-migration.ts
