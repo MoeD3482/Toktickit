@@ -1,10 +1,50 @@
-import type { Express } from "express";
+
+import { createHash } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import type { Express, Response } from "express";
+
 import {
   getAuthenticatedUser,
   sendAuthenticationRequired,
   sendForbidden,
 } from "./auth/http.js";
+
 import { getPrisma } from "./prisma.js";
+
+// =========================================================
+// Shared Types and Helpers
+// =========================================================
+
+const ACTION_TAKEN_INCLUDE = {
+  performedBy: {
+    select: {
+      id: true,
+      displayName: true,
+    },
+  },
+} as const;
+
+type ActionTakenCreateData = {
+  ticketId: string;
+  performedByUserId: string;
+  actionAt: Date;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+};
+
+type ActionTakenComparable = {
+  ticketId: string;
+  performedByUserId: string;
+  actionAt: Date;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+};
 
 function hasRole(
   user: { roles: unknown[] },
@@ -15,11 +55,102 @@ function hasRole(
   );
 }
 
+function sendValidationError(
+  res: Response,
+  message: string,
+  fieldErrors: {
+    field: string;
+    message: string;
+  }[],
+) {
+  return res.status(422).json({
+    error: {
+      code: "VALIDATION_ERROR",
+      message,
+      fieldErrors,
+    },
+  });
+}
+
+/**
+ * Generates a deterministic UUID-shaped ID.
+ *
+ * The key is scoped by Ticket and authenticated performer.
+ * The same key, Ticket and performer always produce the same ID.
+ */
+function createIdempotentActionId(
+  ticketId: string,
+  userId: string,
+  idempotencyKey: string,
+): string {
+  const hex = createHash("sha256")
+    .update(
+      `toktickit:actions-taken:${ticketId}:${userId}:${idempotencyKey}`,
+    )
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
+
+  // UUID version 5 and RFC variant bits.
+  hex[12] = "5";
+
+  hex[16] = (
+    (Number.parseInt(hex[16], 16) & 0x3) | 0x8
+  ).toString(16);
+
+  const value = hex.join("");
+
+  return [
+    value.slice(0, 8),
+    value.slice(8, 12),
+    value.slice(12, 16),
+    value.slice(16, 20),
+    value.slice(20, 32),
+  ].join("-");
+}
+
+function isSameActionRequest(
+  existing: ActionTakenComparable,
+  requested: ActionTakenCreateData,
+): boolean {
+  return (
+    existing.ticketId === requested.ticketId &&
+    existing.performedByUserId ===
+      requested.performedByUserId &&
+    existing.actionAt.getTime() ===
+      requested.actionAt.getTime() &&
+    existing.description === requested.description &&
+    existing.result === requested.result &&
+    existing.followUpRequired ===
+      requested.followUpRequired &&
+    existing.followUpNote === requested.followUpNote &&
+    existing.attachmentNotes === requested.attachmentNotes
+  );
+}
+
+function isUniqueConstraintError(
+  error: unknown,
+): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+// =========================================================
+// Actions Taken Routes
+// =========================================================
+
 export function registerActionsTakenRoutes(app: Express) {
+  // =======================================================
+  // GET: List Actions Taken
+  // =======================================================
+
   app.get(
     "/api/v1/tickets/:ticketId/actions-taken",
     async (req, res) => {
       try {
+        // Authentication
         const user = await getAuthenticatedUser(req);
 
         if (!user) {
@@ -27,6 +158,7 @@ export function registerActionsTakenRoutes(app: Express) {
           return;
         }
 
+        // Authorization
         const canAccessStaffTickets =
           hasRole(user, "ITStaff") ||
           hasRole(user, "Administrator");
@@ -40,6 +172,7 @@ export function registerActionsTakenRoutes(app: Express) {
 
         const prisma = getPrisma();
 
+        // Verify Ticket existence.
         const ticket = await prisma.ticket.findUnique({
           where: {
             id: req.params.ticketId,
@@ -60,7 +193,7 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
-        // Requesters may only read their own Tickets.
+        // Requesters can read their own Tickets only.
         if (
           !canAccessStaffTickets &&
           ticket.requesterUserId !== user.id
@@ -82,14 +215,7 @@ export function registerActionsTakenRoutes(app: Express) {
             { actionAt: "desc" },
             { createdAt: "desc" },
           ],
-          include: {
-            performedBy: {
-              select: {
-                id: true,
-                displayName: true,
-              },
-            },
-          },
+          include: ACTION_TAKEN_INCLUDE,
         });
 
         return res.status(200).json({
@@ -111,11 +237,16 @@ export function registerActionsTakenRoutes(app: Express) {
       }
     },
   );
-    app.post
-    (
+
+  // =======================================================
+  // POST: Create Action Taken
+  // =======================================================
+
+  app.post(
     "/api/v1/tickets/:ticketId/actions-taken",
     async (req, res) => {
       try {
+        // Authentication
         const user = await getAuthenticatedUser(req);
 
         if (!user) {
@@ -123,6 +254,7 @@ export function registerActionsTakenRoutes(app: Express) {
           return;
         }
 
+        // Only IT Staff and Administrators can create.
         const canCreate =
           hasRole(user, "ITStaff") ||
           hasRole(user, "Administrator");
@@ -132,20 +264,28 @@ export function registerActionsTakenRoutes(app: Express) {
           return;
         }
 
-        const rawActionAt = req.body?.actionAt;
-        const rawDescription = req.body?.description;
-        const rawResult = req.body?.result;
+        // Idempotency key
+        const idempotencyKey =
+          req.get("Idempotency-Key")?.trim() ?? "";
+
+        // Request fields
+        const body = req.body ?? {};
+
+        const rawActionAt = body.actionAt;
+        const rawDescription = body.description;
+        const rawResult = body.result;
         const rawFollowUpRequired =
-          req.body?.followUpRequired;
-        const rawFollowUpNote = req.body?.followUpNote;
+          body.followUpRequired;
+        const rawFollowUpNote = body.followUpNote;
         const rawAttachmentNotes =
-          req.body?.attachmentNotes;
+          body.attachmentNotes;
 
         const fieldErrors: {
           field: string;
           message: string;
         }[] = [];
 
+        // Parse values
         const actionAt =
           typeof rawActionAt === "string"
             ? new Date(rawActionAt)
@@ -176,16 +316,31 @@ export function registerActionsTakenRoutes(app: Express) {
             ? rawAttachmentNotes.trim()
             : null;
 
+        // Idempotency validation
+        if (
+          idempotencyKey.length < 1 ||
+          idempotencyKey.length > 128
+        ) {
+          fieldErrors.push({
+            field: "idempotencyKey",
+            message:
+              "A valid Idempotency-Key header is required (maximum 128 characters).",
+          });
+        }
+
+        // Action date validation
         if (
           !actionAt ||
           Number.isNaN(actionAt.getTime())
         ) {
           fieldErrors.push({
             field: "actionAt",
-            message: "A valid action date and time is required.",
+            message:
+              "A valid action date and time is required.",
           });
         }
 
+        // Description validation
         if (
           description.length < 1 ||
           description.length > 4000
@@ -197,7 +352,11 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
-        if (result.length < 1 || result.length > 4000) {
+        // Result validation
+        if (
+          result.length < 1 ||
+          result.length > 4000
+        ) {
           fieldErrors.push({
             field: "result",
             message:
@@ -205,13 +364,16 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
+        // Follow-up Required validation
         if (typeof followUpRequired !== "boolean") {
           fieldErrors.push({
             field: "followUpRequired",
-            message: "Follow-up Required must be true or false.",
+            message:
+              "Follow-up Required must be true or false.",
           });
         }
 
+        // Follow-up Note validation
         if (
           followUpRequired === true &&
           followUpNote.length === 0
@@ -231,10 +393,12 @@ export function registerActionsTakenRoutes(app: Express) {
         ) {
           fieldErrors.push({
             field: "followUpNote",
-            message: "Follow-up Note is invalid or too long.",
+            message:
+              "Follow-up Note is invalid or too long.",
           });
         }
 
+        // Attachment Notes validation
         if (
           attachmentNotes !== null &&
           attachmentNotes.length > 2000
@@ -253,22 +417,22 @@ export function registerActionsTakenRoutes(app: Express) {
         ) {
           fieldErrors.push({
             field: "attachmentNotes",
-            message: "Attachment Notes must be text or null.",
+            message:
+              "Attachment Notes must be text or null.",
           });
         }
 
         if (fieldErrors.length > 0) {
-          return res.status(422).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Action Taken is invalid.",
-              fieldErrors,
-            },
-          });
+          return sendValidationError(
+            res,
+            "Action Taken is invalid.",
+            fieldErrors,
+          );
         }
 
         const prisma = getPrisma();
 
+        // Verify Ticket existence.
         const ticket = await prisma.ticket.findUnique({
           where: {
             id: req.params.ticketId,
@@ -288,32 +452,122 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
-        const action = await prisma.actionTaken.create({
-          data: {
-            ticketId: ticket.id,
-            performedByUserId: user.id,
-            actionAt: actionAt!,
-            description,
-            result,
-            followUpRequired,
-            followUpNote: followUpNote || null,
-            attachmentNotes,
-          },
-          include: {
-            performedBy: {
-              select: {
-                id: true,
-                displayName: true,
-              },
-            },
-          },
-        });
+        // Performer is always taken from authentication.
+        const actionData: ActionTakenCreateData = {
+          ticketId: ticket.id,
+          performedByUserId: user.id,
+          actionAt: actionAt!,
+          description,
+          result,
+          followUpRequired,
+          followUpNote: followUpNote || null,
+          attachmentNotes,
+        };
 
-        return res.status(201).json({
-          data: action,
-        });
+        // Generate deterministic ID for this request.
+        const actionId = createIdempotentActionId(
+          ticket.id,
+          user.id,
+          idempotencyKey,
+        );
+
+        // Check for a previous submission.
+        const previousAction =
+          await prisma.actionTaken.findUnique({
+            where: {
+              id: actionId,
+            },
+            include: ACTION_TAKEN_INCLUDE,
+          });
+
+        if (previousAction) {
+          if (
+            !isSameActionRequest(
+              previousAction,
+              actionData,
+            )
+          ) {
+            return res.status(409).json({
+              error: {
+                code: "IDEMPOTENCY_KEY_REUSED",
+                message:
+                  "This Idempotency-Key was already used for a different request.",
+                fieldErrors: [],
+              },
+            });
+          }
+
+          res.setHeader(
+            "Idempotency-Replayed",
+            "true",
+          );
+
+          return res.status(200).json({
+            data: previousAction,
+          });
+        }
+
+        // Create a new ActionTaken.
+        try {
+          const action = await prisma.actionTaken.create({
+            data: {
+              id: actionId,
+              ...actionData,
+            },
+            include: ACTION_TAKEN_INCLUDE,
+          });
+
+          return res.status(201).json({
+            data: action,
+          });
+        } catch (error) {
+          // Handle concurrent duplicate submissions.
+          if (!isUniqueConstraintError(error)) {
+            throw error;
+          }
+
+          const concurrentAction =
+            await prisma.actionTaken.findUnique({
+              where: {
+                id: actionId,
+              },
+              include: ACTION_TAKEN_INCLUDE,
+            });
+
+          if (!concurrentAction) {
+            throw error;
+          }
+
+          if (
+            !isSameActionRequest(
+              concurrentAction,
+              actionData,
+            )
+          ) {
+            return res.status(409).json({
+              error: {
+                code: "IDEMPOTENCY_KEY_REUSED",
+                message:
+                  "This Idempotency-Key was already used for a different request.",
+                fieldErrors: [],
+              },
+            });
+          }
+
+          res.setHeader(
+            "Idempotency-Replayed",
+            "true",
+          );
+
+          return res.status(200).json({
+            data: concurrentAction,
+          });
+        }
       } catch (error) {
-        console.error("Failed to create Action Taken:", error);
+        console.error(
+          "Failed to create Action Taken:",
+          error,
+        );
 
         return res.status(500).json({
           error: {
@@ -325,10 +579,16 @@ export function registerActionsTakenRoutes(app: Express) {
       }
     },
   );
-    app.patch(
+
+  // =======================================================
+  // PATCH: Update Action Taken
+  // =======================================================
+
+  app.patch(
     "/api/v1/tickets/:ticketId/actions-taken/:actionId",
     async (req, res) => {
       try {
+        // Authentication
         const user = await getAuthenticatedUser(req);
 
         if (!user) {
@@ -336,6 +596,7 @@ export function registerActionsTakenRoutes(app: Express) {
           return;
         }
 
+        // Only IT Staff and Administrators can update.
         const canUpdate =
           hasRole(user, "ITStaff") ||
           hasRole(user, "Administrator");
@@ -346,12 +607,18 @@ export function registerActionsTakenRoutes(app: Express) {
         }
 
         const prisma = getPrisma();
+
         const ticketId = req.params.ticketId;
         const actionId = req.params.actionId;
 
+        // Verify Ticket.
         const ticket = await prisma.ticket.findUnique({
-          where: { id: ticketId },
-          select: { id: true },
+          where: {
+            id: ticketId,
+          },
+          select: {
+            id: true,
+          },
         });
 
         if (!ticket) {
@@ -364,6 +631,7 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
+        // Verify ActionTaken belongs to this Ticket.
         const existing = await prisma.actionTaken.findFirst({
           where: {
             id: actionId,
@@ -381,7 +649,9 @@ export function registerActionsTakenRoutes(app: Express) {
           });
         }
 
+        // Optimistic concurrency validation.
         const expectedRaw = req.body?.expectedUpdatedAt;
+
         const expectedUpdatedAt =
           typeof expectedRaw === "string"
             ? new Date(expectedRaw)
@@ -391,19 +661,17 @@ export function registerActionsTakenRoutes(app: Express) {
           !expectedUpdatedAt ||
           Number.isNaN(expectedUpdatedAt.getTime())
         ) {
-          return res.status(422).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "A valid expectedUpdatedAt value is required.",
-              fieldErrors: [
-                {
-                  field: "expectedUpdatedAt",
-                  message:
-                    "Send the updatedAt value from the latest Action Taken response.",
-                },
-              ],
-            },
-          });
+          return sendValidationError(
+            res,
+            "A valid expectedUpdatedAt value is required.",
+            [
+              {
+                field: "expectedUpdatedAt",
+                message:
+                  "Send the updatedAt value from the latest Action Taken response.",
+              },
+            ],
+          );
         }
 
         if (
@@ -421,6 +689,7 @@ export function registerActionsTakenRoutes(app: Express) {
         }
 
         const body = req.body ?? {};
+
         const fieldErrors: {
           field: string;
           message: string;
@@ -435,11 +704,13 @@ export function registerActionsTakenRoutes(app: Express) {
           attachmentNotes?: string | null;
         } = {};
 
+        // Action Date/Time
         if (body.actionAt !== undefined) {
           if (typeof body.actionAt !== "string") {
             fieldErrors.push({
               field: "actionAt",
-              message: "Action date and time must be text.",
+              message:
+                "Action date and time must be text.",
             });
           } else {
             const date = new Date(body.actionAt);
@@ -447,7 +718,8 @@ export function registerActionsTakenRoutes(app: Express) {
             if (Number.isNaN(date.getTime())) {
               fieldErrors.push({
                 field: "actionAt",
-                message: "A valid action date and time is required.",
+                message:
+                  "A valid action date and time is required.",
               });
             } else {
               data.actionAt = date;
@@ -455,14 +727,20 @@ export function registerActionsTakenRoutes(app: Express) {
           }
         }
 
-        for (const field of ["description", "result"] as const) {
-          if (body[field] === undefined) continue;
+        // Description and Result
+        for (
+          const field of ["description", "result"] as const
+        ) {
+          if (body[field] === undefined) {
+            continue;
+          }
 
           if (typeof body[field] !== "string") {
             fieldErrors.push({
               field,
               message: `${field} must be text.`,
             });
+
             continue;
           }
 
@@ -471,50 +749,72 @@ export function registerActionsTakenRoutes(app: Express) {
           if (value.length < 1 || value.length > 4000) {
             fieldErrors.push({
               field,
-              message: `${field} must contain between 1 and 4000 characters.`,
+              message:
+                `${field} must contain between 1 and 4000 characters.`,
             });
+
             continue;
           }
 
           data[field] = value;
         }
 
+        // Follow-up Required
         if (body.followUpRequired !== undefined) {
-          if (typeof body.followUpRequired !== "boolean") {
+          if (
+            typeof body.followUpRequired !== "boolean"
+          ) {
             fieldErrors.push({
               field: "followUpRequired",
-              message: "Follow-up Required must be true or false.",
+              message:
+                "Follow-up Required must be true or false.",
             });
           } else {
-            data.followUpRequired = body.followUpRequired;
+            data.followUpRequired =
+              body.followUpRequired;
           }
         }
 
+        // Follow-up Note and Attachment Notes
         for (
-          const field of ["followUpNote", "attachmentNotes"] as const
+          const field of [
+            "followUpNote",
+            "attachmentNotes",
+          ] as const
         ) {
-          if (body[field] === undefined) continue;
+          if (body[field] === undefined) {
+            continue;
+          }
 
           const value = body[field];
 
-          if (value !== null && typeof value !== "string") {
+          if (
+            value !== null &&
+            typeof value !== "string"
+          ) {
             fieldErrors.push({
               field,
               message: `${field} must be text or null.`,
             });
+
             continue;
           }
 
           const trimmed =
-            typeof value === "string" ? value.trim() : null;
+            typeof value === "string"
+              ? value.trim()
+              : null;
 
-          const maxLength = 2000;
-
-          if (trimmed !== null && trimmed.length > maxLength) {
+          if (
+            trimmed !== null &&
+            trimmed.length > 2000
+          ) {
             fieldErrors.push({
               field,
-              message: `${field} must not exceed ${maxLength} characters.`,
+              message:
+                `${field} must not exceed 2000 characters.`,
             });
+
             continue;
           }
 
@@ -522,13 +822,16 @@ export function registerActionsTakenRoutes(app: Express) {
             trimmed === "" ? null : trimmed;
         }
 
+        // At least one editable field is required.
         if (Object.keys(data).length === 0) {
           fieldErrors.push({
             field: "body",
-            message: "Provide at least one field to update.",
+            message:
+              "Provide at least one field to update.",
           });
         }
 
+        // Validate final follow-up state.
         const nextFollowUpRequired =
           data.followUpRequired ??
           existing.followUpRequired;
@@ -550,15 +853,14 @@ export function registerActionsTakenRoutes(app: Express) {
         }
 
         if (fieldErrors.length > 0) {
-          return res.status(422).json({
-            error: {
-              code: "VALIDATION_ERROR",
-              message: "Action Taken update is invalid.",
-              fieldErrors,
-            },
-          });
+          return sendValidationError(
+            res,
+            "Action Taken update is invalid.",
+            fieldErrors,
+          );
         }
 
+        // Atomic stale-update protection.
         const update = await prisma.actionTaken.updateMany({
           where: {
             id: actionId,
@@ -581,15 +883,10 @@ export function registerActionsTakenRoutes(app: Express) {
 
         const updatedAction =
           await prisma.actionTaken.findUnique({
-            where: { id: actionId },
-            include: {
-              performedBy: {
-                select: {
-                  id: true,
-                  displayName: true,
-                },
-              },
+            where: {
+              id: actionId,
             },
+            include: ACTION_TAKEN_INCLUDE,
           });
 
         if (!updatedAction) {
@@ -606,7 +903,10 @@ export function registerActionsTakenRoutes(app: Express) {
           data: updatedAction,
         });
       } catch (error) {
-        console.error("Failed to update Action Taken:", error);
+        console.error(
+          "Failed to update Action Taken:",
+          error,
+        );
 
         return res.status(500).json({
           error: {

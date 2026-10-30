@@ -245,3 +245,38 @@ Preserve all approved Lab 1–3 API behavior, including:
 - [ ] Staff Dashboard metrics match database queries.
 - [ ] Error responses are safe and consistent.
 - [ ] API and regression tests pass.
+
+### POST /api/v1/tickets/:ticketId/actions-taken
+
+Authentication: Required
+Allowed roles: ITStaff, Administrator
+
+Required header:
+- Idempotency-Key: unique request key (1–128 characters)
+
+Request body:
+- actionAt: valid date/time string
+- description: required, 1–4000 characters
+- result: required, 1–4000 characters
+- followUpRequired: boolean (defaults to false)
+- followUpNote: nullable, maximum 2000 characters
+- attachmentNotes: nullable, maximum 2000 characters
+
+The performer is always derived from the authenticated session.
+Client-supplied performedByUserId is ignored.
+
+Responses:
+- 201: Action Taken created.
+- 200: Existing Action Taken returned for an identical retry.
+  Response header: Idempotency-Replayed: true
+- 401: Authentication required.
+- 403: Insufficient role.
+- 404: Ticket not found.
+- 409: Idempotency key reused with a different payload.
+- 422: Validation error.
+- 500: Internal server error.
+
+Idempotency:
+The key is scoped to the Ticket and authenticated performer.
+Submitting the same key and same payload returns the existing Action Taken.
+Submitting the same key with a different payload returns 409.
