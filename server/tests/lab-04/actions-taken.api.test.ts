@@ -1,3 +1,4 @@
+
 import {
   afterEach,
   beforeEach,
@@ -8,6 +9,7 @@ import {
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 import type { UserRole } from "@prisma/client";
+
 import { app } from "../../src/app.js";
 import { hashPassword } from "../../src/auth/password.js";
 import { clearSessionsForTests } from "../../src/auth/session.js";
@@ -17,10 +19,25 @@ const emailPrefix = "lab4-actions-taken-";
 const ticketPrefix = "LAB4-ACTIONS-";
 const TEST_PASSWORD = "CurrentPass123";
 
+function validActionPayload(
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    actionAt: "2026-10-29T05:00:00.000Z",
+    description: "Checked network settings",
+    result: "Network configuration reviewed",
+    followUpRequired: false,
+    followUpNote: null,
+    attachmentNotes: null,
+    ...overrides,
+  };
+}
+
 async function cleanupFixtures() {
   clearSessionsForTests();
 
   const prisma = getPrisma();
+
   const ticketWhere = {
     ticket: {
       ticketNo: {
@@ -32,15 +49,19 @@ async function cleanupFixtures() {
   await prisma.actionTaken.deleteMany({
     where: ticketWhere,
   });
+
   await prisma.ticketAction.deleteMany({
     where: ticketWhere,
   });
+
   await prisma.ticketComment.deleteMany({
     where: ticketWhere,
   });
+
   await prisma.internalNote.deleteMany({
     where: ticketWhere,
   });
+
   await prisma.ticket.deleteMany({
     where: {
       ticketNo: {
@@ -48,6 +69,7 @@ async function cleanupFixtures() {
       },
     },
   });
+
   await prisma.developmentRequester.deleteMany({
     where: {
       email: {
@@ -55,6 +77,7 @@ async function cleanupFixtures() {
       },
     },
   });
+
   await prisma.user.deleteMany({
     where: {
       email: {
@@ -134,6 +157,7 @@ async function signIn(email: string) {
   });
 
   expect(response.status).toBe(200);
+
   return agent;
 }
 
@@ -175,12 +199,14 @@ describe.sequential("Lab 4 Actions Taken API", () => {
     });
 
     const agent = await signIn(requester.email);
+
     const response = await agent.get(
       `/api/v1/tickets/${ticket.id}/actions-taken`,
     );
 
     expect(response.status).toBe(200);
     expect(response.body.data).toHaveLength(1);
+
     expect(response.body.data[0]).toEqual(
       expect.objectContaining({
         ticketId: ticket.id,
@@ -235,15 +261,14 @@ describe.sequential("Lab 4 Actions Taken API", () => {
 
     const response = await agent
       .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
-      .send({
-        actionAt: "2026-10-29T05:00:00.000Z",
-        description: "Checked network settings",
-        result: "Network configuration reviewed",
-        followUpRequired: true,
-        followUpNote: "Verify after restart",
-        attachmentNotes: null,
-        performedByUserId: requester.id,
-      });
+      .set("Idempotency-Key", randomUUID())
+      .send(
+        validActionPayload({
+          followUpRequired: true,
+          followUpNote: "Verify after restart",
+          performedByUserId: requester.id,
+        }),
+      );
 
     expect(response.status).toBe(201);
 
@@ -256,8 +281,35 @@ describe.sequential("Lab 4 Actions Taken API", () => {
       });
 
     expect(savedAction.performedByUserId).toBe(staff.id);
+    expect(savedAction.performedByUserId).not.toBe(requester.id);
     expect(savedAction.followUpRequired).toBe(true);
     expect(savedAction.followUpNote).toBe("Verify after restart");
+  });
+
+  it("allows an Administrator to create an Action Taken", async () => {
+    const requester = await createUser({
+      displayName: "Admin Action Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const administrator = await createUser({
+      displayName: "Actions Administrator",
+      roles: ["Administrator"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(administrator.email);
+
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", randomUUID())
+      .send(validActionPayload());
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.performedByUserId).toBe(
+      administrator.id,
+    );
   });
 
   it("does not allow a Requester to create an Action Taken", async () => {
@@ -272,14 +324,147 @@ describe.sequential("Lab 4 Actions Taken API", () => {
 
     const response = await agent
       .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
-      .send({
-        actionAt: "2026-10-29T05:00:00.000Z",
-        description: "Attempted action",
-        result: "Attempted result",
-        followUpRequired: false,
-      });
+      .send(validActionPayload());
 
     expect(response.status).toBe(403);
+  });
+
+  it("requires an Idempotency-Key for Action Taken creation", async () => {
+    const requester = await createUser({
+      displayName: "Missing Key Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Missing Key Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .send(validActionPayload());
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+
+    expect(
+      response.body.error.fieldErrors.some(
+        (error: { field: string }) =>
+          error.field === "idempotencyKey",
+      ),
+    ).toBe(true);
+  });
+
+  it("replays the same Action Taken when the same key and payload are submitted again", async () => {
+    const requester = await createUser({
+      displayName: "Replay Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Replay Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+    const idempotencyKey = randomUUID();
+    const payload = validActionPayload();
+
+    const firstResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", idempotencyKey)
+      .send(payload);
+
+    const replayResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", idempotencyKey)
+      .send(payload);
+
+    expect(firstResponse.status).toBe(201);
+    expect(replayResponse.status).toBe(200);
+    expect(replayResponse.headers["idempotency-replayed"]).toBe(
+      "true",
+    );
+
+    expect(replayResponse.body.data.id).toBe(
+      firstResponse.body.data.id,
+    );
+
+    const count = await getPrisma().actionTaken.count({
+      where: {
+        ticketId: ticket.id,
+      },
+    });
+
+    expect(count).toBe(1);
+  });
+
+  it("rejects reusing an Idempotency-Key with a different payload", async () => {
+    const requester = await createUser({
+      displayName: "Key Reuse Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Key Reuse Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+    const idempotencyKey = randomUUID();
+
+    const firstResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", idempotencyKey)
+      .send(validActionPayload());
+
+    const secondResponse = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", idempotencyKey)
+      .send(
+        validActionPayload({
+          description: "Different description",
+        }),
+      );
+
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.body.error.code).toBe(
+      "IDEMPOTENCY_KEY_REUSED",
+    );
+
+    const count = await getPrisma().actionTaken.count({
+      where: {
+        ticketId: ticket.id,
+      },
+    });
+
+    expect(count).toBe(1);
+  });
+
+  it("returns 404 when creating an Action Taken for a missing Ticket", async () => {
+    const staff = await createUser({
+      displayName: "Missing Ticket Staff",
+      roles: ["ITStaff"],
+    });
+
+    const agent = await signIn(staff.email);
+
+    const response = await agent
+      .post(`/api/v1/tickets/${randomUUID()}/actions-taken`)
+      .set("Idempotency-Key", randomUUID())
+      .send(validActionPayload());
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("TICKET_NOT_FOUND");
   });
 
   it("requires a follow-up note when follow-up is required", async () => {
@@ -299,16 +484,18 @@ describe.sequential("Lab 4 Actions Taken API", () => {
 
     const response = await agent
       .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
-      .send({
-        actionAt: "2026-10-29T05:00:00.000Z",
-        description: "Checked network settings",
-        result: "Follow-up needed",
-        followUpRequired: true,
-        followUpNote: "   ",
-      });
+      .set("Idempotency-Key", randomUUID())
+      .send(
+        validActionPayload({
+          result: "Follow-up needed",
+          followUpRequired: true,
+          followUpNote: "   ",
+        }),
+      );
 
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
+
     expect(
       response.body.error.fieldErrors.some(
         (error: { field: string }) =>
@@ -316,7 +503,46 @@ describe.sequential("Lab 4 Actions Taken API", () => {
       ),
     ).toBe(true);
   });
-    it("allows IT Staff to update an Action Taken", async () => {
+
+  it("rejects invalid Action Taken fields", async () => {
+    const requester = await createUser({
+      displayName: "Invalid Data Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Invalid Data Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    const response = await agent
+      .post(`/api/v1/tickets/${ticket.id}/actions-taken`)
+      .set("Idempotency-Key", randomUUID())
+      .send(
+        validActionPayload({
+          actionAt: "not-a-date",
+          description: "",
+          result: "",
+        }),
+      );
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+
+    const fields = response.body.error.fieldErrors.map(
+      (error: { field: string }) => error.field,
+    );
+
+    expect(fields).toContain("actionAt");
+    expect(fields).toContain("description");
+    expect(fields).toContain("result");
+  });
+
+  it("allows IT Staff to update an Action Taken", async () => {
     const requester = await createUser({
       displayName: "Update Requester",
       roles: ["Requester"],
@@ -363,6 +589,59 @@ describe.sequential("Lab 4 Actions Taken API", () => {
     );
   });
 
+  it("allows an Administrator to update an Action Taken", async () => {
+    const requester = await createUser({
+      displayName: "Admin Update Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Admin Update Original Staff",
+      roles: ["ITStaff"],
+    });
+
+    const administrator = await createUser({
+      displayName: "Admin Update User",
+      roles: ["Administrator"],
+    });
+
+    const ticket = await createTicket(requester.id);
+
+    const action = await getPrisma().actionTaken.create({
+      data: {
+        ticketId: ticket.id,
+        performedByUserId: staff.id,
+        actionAt: new Date("2026-10-29T05:00:00.000Z"),
+        description: "Original description",
+        result: "Original result",
+        followUpRequired: false,
+      },
+    });
+
+    const agent = await signIn(administrator.email);
+
+    const response = await agent
+      .patch(
+        `/api/v1/tickets/${ticket.id}/actions-taken/${action.id}`,
+      )
+      .send({
+        expectedUpdatedAt: action.updatedAt.toISOString(),
+        description: "Administrator updated description",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.description).toBe(
+      "Administrator updated description",
+    );
+
+    // Updating the record must not replace its original performer.
+    expect(response.body.data.performedByUserId).toBe(staff.id);
+    expect(response.body.data.performedByUserId).not.toBe(
+      administrator.id,
+    );
+  });
+
   it("does not allow a Requester to update an Action Taken", async () => {
     const requester = await createUser({
       displayName: "Read Only Requester",
@@ -400,6 +679,49 @@ describe.sequential("Lab 4 Actions Taken API", () => {
       });
 
     expect(response.status).toBe(403);
+  });
+
+  it("returns 404 when updating an Action Taken through the wrong Ticket", async () => {
+    const requester = await createUser({
+      displayName: "Wrong Ticket Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Wrong Ticket Staff",
+      roles: ["ITStaff"],
+    });
+
+    const firstTicket = await createTicket(requester.id);
+    const secondTicket = await createTicket(requester.id);
+
+    const action = await getPrisma().actionTaken.create({
+      data: {
+        ticketId: firstTicket.id,
+        performedByUserId: staff.id,
+        actionAt: new Date("2026-10-29T05:00:00.000Z"),
+        description: "Action on first Ticket",
+        result: "Original result",
+        followUpRequired: false,
+      },
+    });
+
+    const agent = await signIn(staff.email);
+
+    const response = await agent
+      .patch(
+        `/api/v1/tickets/${secondTicket.id}/actions-taken/${action.id}`,
+      )
+      .send({
+        expectedUpdatedAt: action.updatedAt.toISOString(),
+        description: "Wrong Ticket update",
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe(
+      "ACTION_TAKEN_NOT_FOUND",
+    );
   });
 
   it("rejects a stale Action Taken update", async () => {
