@@ -1,8 +1,15 @@
-﻿import { describe, it, expect } from "vitest";
+﻿
+import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app } from "../../src/app.js";
 
-const TEST_REQUESTER_PREFIX = "lab2-test-requester-";
+const AUTOMATED_TEST_REQUESTER_EMAILS = [
+  "e2e-requester@toktickit.test",
+];
+
+const AUTOMATED_TEST_REQUESTER_PREFIXES = [
+  "lab2-test-requester-",
+];
 
 interface RequesterResponse {
   id: string;
@@ -21,10 +28,14 @@ describe("GET /api/v1/development-requesters", () => {
     const requesters =
       res.body.data as RequesterResponse[];
 
-    // Dedicated automated-test accounts are separate from seeded users.
     const seededRequesters = requesters.filter(
       (requester) =>
-        !requester.email.startsWith(TEST_REQUESTER_PREFIX),
+        !AUTOMATED_TEST_REQUESTER_EMAILS.includes(
+          requester.email,
+        ) &&
+        !AUTOMATED_TEST_REQUESTER_PREFIXES.some(
+          (prefix) => requester.email.startsWith(prefix),
+        ),
     );
 
     expect(seededRequesters).toHaveLength(4);

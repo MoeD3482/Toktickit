@@ -68,15 +68,23 @@ test("E2E-07 IT Staff opens a ticket and views ticket controls", async ({
   await loginAsStaff(page);
 
   const ticketButtons = page.locator(
-    'button.btn-link.fw-bold'
-  );
+  'button.btn-link.fw-bold'
+);
 
-  await expect(ticketButtons.first()).toBeVisible();
-  await ticketButtons.first().click();
+const firstTicket = ticketButtons.first();
 
-  await expect(
-    page.getByRole("heading", { name: /TKT-/ })
-  ).toBeVisible();
+await expect(firstTicket).toBeVisible();
+
+const ticketNo = (await firstTicket.innerText()).trim();
+
+await firstTicket.click();
+
+await expect(
+  page.getByRole("heading", {
+    name: ticketNo,
+    exact: true,
+  })
+).toBeVisible();
 
   await expect(
     page.getByRole("heading", { name: "Staff Controls" })

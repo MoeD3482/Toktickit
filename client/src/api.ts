@@ -328,7 +328,7 @@ export interface TicketListItem {
   };
 
   requestedPriority: RequestedPriority;
-  status: "New";
+  status: TicketStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -345,7 +345,8 @@ export interface MyTicketsQuery {
   categoryId?: number;
   relatedSystemId?: string;
   requestedPriority?: RequestedPriority;
-  status?: "New";
+  status?: TicketStatus | readonly TicketStatus[];
+  updatedWithinDays?: number;
   sort?: "ticketNo" | "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   page?: number;
@@ -394,7 +395,16 @@ export async function getMyTickets(
   if (query.status) {
     params.set(
       "status",
-      query.status
+      typeof query.status === "string"
+        ? query.status
+        : query.status.join(",")
+    );
+  }
+
+  if (query.updatedWithinDays !== undefined) {
+    params.set(
+      "updatedWithinDays",
+      String(query.updatedWithinDays)
     );
   }
 
@@ -452,6 +462,34 @@ export async function getMyTickets(
   return result;
 }
 
+export interface RequesterDashboardTicket {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  requestedPriority: RequestedPriority;
+  status: TicketStatus;
+  updatedAt: string;
+}
+
+export interface RequesterDashboard {
+  openTicketCount: number;
+  waitingForRequesterCount: number;
+  recentlyUpdatedCount: number;
+  recentlyResolvedCount: number;
+  recentTickets: RequesterDashboardTicket[];
+  attentionRequiredTickets: RequesterDashboardTicket[];
+}
+
+export function getRequesterDashboard(): Promise<
+  RequesterDashboard
+> {
+  return staffRequest(
+    "/api/v1/requester/dashboard",
+    {},
+    "Unable to load the Requester Dashboard."
+  );
+}
+
 export interface TicketDetail {
   id: string;
   ticketNo: string;
@@ -474,7 +512,7 @@ export interface TicketDetail {
   summary: string;
   description: string;
   requestedPriority: RequestedPriority;
-  status: "New";
+  status: TicketStatus;
   createdAt: string;
   updatedAt: string;
 }

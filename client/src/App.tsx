@@ -3,6 +3,7 @@ import ChangePassword from "./components/ChangePassword.js";
 import CreateTicket from "./components/CreateTicket.js";
 import Login from "./components/Login.js";
 import MyTickets from "./components/MyTickets.js";
+import RequesterDashboard from "./components/RequesterDashboard.js";
 import RequesterTicketDetail from "./components/RequesterTicketDetail.js";
 import StaffQueue from "./components/StaffQueue.js";
 import StaffTicketDetail from "./components/StaffTicketDetail.js";
@@ -13,10 +14,12 @@ import {
   DevelopmentRequester,
   getCurrentUser,
   logout,
+  MyTicketsQuery,
 } from "./api.js";
 
 type ActivePage =
   | "create"
+  | "requester-dashboard"
   | "tickets"
   | "staff-queue"
   | "user-management"
@@ -42,6 +45,17 @@ export default function App() {
 
   const [selectedStaffTicketId, setSelectedStaffTicketId] =
     useState<string | null>(null);
+
+  const [requesterTicketQuery, setRequesterTicketQuery] =
+    useState<
+      Pick<
+        MyTicketsQuery,
+        "status" | "updatedWithinDays"
+      >
+    >({});
+
+  const [requesterTicketFilterLabel, setRequesterTicketFilterLabel] =
+    useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -88,6 +102,8 @@ export default function App() {
     setCurrentUser(null);
     setSelectedTicketId(null);
     setSelectedStaffTicketId(null);
+    setRequesterTicketQuery({});
+    setRequesterTicketFilterLabel(undefined);
     setActivePage("create");
     setAuthState("anonymous");
   }
@@ -98,6 +114,8 @@ export default function App() {
     setCurrentUser(user);
     setSelectedTicketId(null);
     setSelectedStaffTicketId(null);
+    setRequesterTicketQuery({});
+    setRequesterTicketFilterLabel(undefined);
 
     if (
       user.roles.includes(
@@ -209,6 +227,27 @@ export default function App() {
                 type="button"
                 className={
                   activePage ===
+                  "requester-dashboard"
+                    ? "btn btn-success"
+                    : "btn btn-outline-success"
+                }
+                onClick={() => {
+                  setActivePage(
+                    "requester-dashboard"
+                  );
+                  setSelectedTicketId(null);
+                  setSelectedStaffTicketId(null);
+                  setRequesterTicketQuery({});
+                  setRequesterTicketFilterLabel(undefined);
+                }}
+              >
+                Dashboard
+              </button>
+
+              <button
+                type="button"
+                className={
+                  activePage ===
                   "tickets"
                     ? "btn btn-success"
                     : "btn btn-outline-success"
@@ -223,6 +262,8 @@ export default function App() {
                   setSelectedStaffTicketId(
                     null
                   );
+                  setRequesterTicketQuery({});
+                  setRequesterTicketFilterLabel(undefined);
                 }}
               >
                 My Tickets
@@ -246,6 +287,8 @@ export default function App() {
                   setSelectedStaffTicketId(
                     null
                   );
+                  setRequesterTicketQuery({});
+                  setRequesterTicketFilterLabel(undefined);
                 }}
               >
                 Create Ticket
@@ -392,6 +435,24 @@ export default function App() {
               )}
 
               {activePage ===
+                "requester-dashboard" && (
+                <RequesterDashboard
+                  onShowTickets={(
+                    query,
+                    label
+                  ) => {
+                    setRequesterTicketQuery(query);
+                    setRequesterTicketFilterLabel(label);
+                    setSelectedTicketId(null);
+                    setActivePage("tickets");
+                  }}
+                  onSelectTicket={(ticketId) => {
+                    setSelectedTicketId(ticketId);
+                  }}
+                />
+              )}
+
+              {activePage ===
                 "tickets" && (
                 <MyTickets
                   requester={
@@ -404,6 +465,16 @@ export default function App() {
                       ticketId
                     )
                   }
+                  dashboardQuery={
+                    requesterTicketQuery
+                  }
+                  dashboardFilterLabel={
+                    requesterTicketFilterLabel
+                  }
+                  onClearDashboardFilter={() => {
+                    setRequesterTicketQuery({});
+                    setRequesterTicketFilterLabel(undefined);
+                  }}
                 />
               )}
             </>

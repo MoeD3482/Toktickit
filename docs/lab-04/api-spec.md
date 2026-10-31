@@ -200,14 +200,37 @@ Return concise backend-calculated information:
         "waitingForRequesterCount": 0,
         "recentlyUpdatedCount": 0,
         "recentlyResolvedCount": 0,
-        "recentTickets": [],
+        "recentTickets": [
+          {
+            "id": "ticket-id",
+            "ticketNo": "TKT-2026-00001",
+            "summary": "Cannot access the VPN",
+            "requestedPriority": "High",
+            "status": "WaitingForRequester",
+            "updatedAt": "2026-10-30T08:30:00.000Z"
+          }
+        ],
         "attentionRequiredTickets": []
       }
     }
 
-The shape may be refined before implementation, but metric names,
-calculations, time-zone policy and drill-down parameters must be
-documented and tested.
+`recentTickets` contains at most five Tickets, ordered by `updatedAt`
+descending (then Ticket number descending), and includes only Tickets
+updated in the preceding 30 rolling 24-hour periods. `recentlyUpdatedCount`
+is the number of returned `recentTickets`, so it is at most five.
+
+`attentionRequiredTickets` contains at most five Tickets currently in the
+documented `WaitingForRequester` status, ordered in the same way. This is the
+approved requester attention definition; it adds no new workflow rule.
+
+`recentlyResolvedCount` counts all Tickets currently `Resolved` or `Closed`
+whose `updatedAt` falls within the same preceding 30-day UTC window.
+Timestamps are stored and queried in UTC; the UI displays them in
+Asia/Bangkok time.
+
+The Requester Ticket list accepts one or more comma-separated supported
+`status` values and an optional `updatedWithinDays` value from 1 to 365. The
+dashboard uses those existing ownership-scoped list semantics for drill-down.
 
 The authenticated Requester's identity determines the query scope.
 Never accept a Requester ID from the client as an authorization substitute.

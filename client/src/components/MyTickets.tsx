@@ -10,10 +10,12 @@ import {
   getActiveCategories,
   getMyTickets,
   getRelatedSystems,
+  MyTicketsQuery,
   RelatedSystem,
   RequestedPriority,
   TicketListItem,
   TicketListMeta,
+  TicketStatus,
 } from "../api.js";
 
 interface MyTicketsProps {
@@ -21,11 +23,20 @@ interface MyTicketsProps {
   onSelectTicket?: (
     ticketId: string
   ) => void;
+  dashboardQuery?: Pick<
+    MyTicketsQuery,
+    "status" | "updatedWithinDays"
+  >;
+  dashboardFilterLabel?: string;
+  onClearDashboardFilter?: () => void;
 }
 
 export default function MyTickets({
   requester,
   onSelectTicket = () => {},
+  dashboardQuery,
+  dashboardFilterLabel,
+  onClearDashboardFilter = () => {},
 }: MyTicketsProps) {
   const [tickets, setTickets] =
     useState<TicketListItem[]>([]);
@@ -65,7 +76,7 @@ export default function MyTickets({
   >("");
 
   const [status, setStatus] =
-    useState<"New" | "">("");
+    useState<TicketStatus | "">("");
 
   const [sort, setSort] = useState<
     | "ticketNo"
@@ -86,12 +97,17 @@ export default function MyTickets({
     setErrorMessage,
   ] = useState("");
 
+  const dashboardFilterKey = JSON.stringify(
+    dashboardQuery ?? {}
+  );
+
   const hasActiveFilters =
     search.trim() !== "" ||
     categoryId !== "" ||
     relatedSystemId !== "" ||
     requestedPriority !== "" ||
-    status !== "";
+    status !== "" ||
+    dashboardFilterKey !== "{}";
 
   async function loadTickets(
     page = 1
@@ -124,7 +140,11 @@ export default function MyTickets({
               undefined,
 
             status:
-              status || undefined,
+              dashboardQuery?.status ??
+              (status || undefined),
+
+            updatedWithinDays:
+              dashboardQuery?.updatedWithinDays,
 
             sort,
             order,
@@ -177,7 +197,7 @@ export default function MyTickets({
 
   useEffect(() => {
     loadTickets(1);
-  }, [requester.id]);
+  }, [requester.id, dashboardFilterKey]);
 
   function handleSearch(
     event: FormEvent<HTMLFormElement>
@@ -195,6 +215,11 @@ export default function MyTickets({
 
     setSort("updatedAt");
     setOrder("desc");
+
+    if (dashboardFilterKey !== "{}") {
+      onClearDashboardFilter();
+      return;
+    }
 
     setTimeout(() => {
       loadTickets(1);
@@ -364,6 +389,23 @@ export default function MyTickets({
             onSubmit={handleSearch}
             className="mb-4 p-3 zen-section"
           >
+            {dashboardFilterLabel && (
+              <div
+                className="alert alert-info d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2"
+                role="status"
+              >
+                <span>
+                  Dashboard filter: {dashboardFilterLabel}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-success"
+                  onClick={onClearDashboardFilter}
+                >
+                  Clear dashboard filter
+                </button>
+              </div>
+            )}
             <div className="row g-3">
               <div className="col-lg-4">
                 <label
@@ -529,7 +571,7 @@ export default function MyTickets({
                   onChange={(event) =>
                     setStatus(
                       event.target.value as
-                        | "New"
+                        | TicketStatus
                         | ""
                     )
                   }
@@ -540,6 +582,34 @@ export default function MyTickets({
 
                   <option value="New">
                     New
+                  </option>
+
+                  <option value="Open">
+                    Open
+                  </option>
+
+                  <option value="InProgress">
+                    In Progress
+                  </option>
+
+                  <option value="WaitingForRequester">
+                    Waiting for Requester
+                  </option>
+
+                  <option value="Resolved">
+                    Resolved
+                  </option>
+
+                  <option value="Closed">
+                    Closed
+                  </option>
+
+                  <option value="Reopened">
+                    Reopened
+                  </option>
+
+                  <option value="Cancelled">
+                    Cancelled
                   </option>
                 </select>
               </div>
