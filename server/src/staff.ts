@@ -127,7 +127,27 @@ function queryValue(value: unknown) {
     ? value.trim()
     : undefined;
 }
+async function requireStaffDashboardUser(
+  req: Request,
+  res: Response
+) {
+  const user = await getAuthenticatedUser(req);
 
+  if (!user) {
+    sendAuthenticationRequired(res);
+    return null;
+  }
+
+  if (
+    !hasRole(user, "ITStaff") &&
+    !hasRole(user, "Administrator")
+  ) {
+    sendForbidden(res);
+    return null;
+  }
+
+  return user;
+}
 async function requireStaffUser(
   req: Request,
   res: Response
@@ -146,7 +166,6 @@ async function requireStaffUser(
 
   return user;
 }
-
 async function authorizePublicCommentTicket(
   req: Request,
   res: Response,
@@ -392,6 +411,158 @@ function queueQuery(req: Request) {
 export function registerStaffRoutes(
   app: Express
 ) {
+    app.get(
+    "/api/v1/staff/dashboard",
+    async (req: Request, res: Response) => {
+      try {
+        const dashboardUser =
+          await requireStaffDashboardUser(req, res);
+
+        if (!dashboardUser) {
+          return;
+        }
+
+        const prisma = getPrisma();
+
+        const recentBoundary = new Date(
+          Date.now() - 30 * 24 * 60 * 60 * 1000
+        );
+
+        const terminalStatuses = [
+          "Resolved",
+          "Closed",
+          "Cancelled",
+        ] as const;
+
+        const activeTicketWhere = {
+          status: {
+            notIn: [...terminalStatuses],
+          },
+        };
+
+        const [
+          unassignedTicketCount,
+          ownedByCurrentUserCount,
+          statusGroups,
+          priorityGroups,
+          recentTickets,
+          urgentTickets,
+        ] = await Promise.all([
+          prisma.ticket.count({
+            where: {
+              ...activeTicketWhere,
+              assignedToUserId: null,
+            },
+          }),
+
+          prisma.ticket.count({
+            where: {
+              ...activeTicketWhere,
+              assignedToUserId: dashboardUser.id,
+            },
+          }),
+
+          prisma.ticket.groupBy({
+            by: ["status"],
+            where: activeTicketWhere,
+            _count: {
+              _all: true,
+            },
+          }),
+
+          prisma.ticket.groupBy({
+            by: ["itPriority"],
+            where: {
+              ...activeTicketWhere,
+              itPriority: {
+                not: null,
+              },
+            },
+            _count: {
+              _all: true,
+            },
+          }),
+
+          prisma.ticket.findMany({
+            where: {
+              updatedAt: {
+                gte: recentBoundary,
+              },
+            },
+            orderBy: [
+              { updatedAt: "desc" },
+              { ticketNo: "desc" },
+            ],
+            take: 5,
+            select: {
+              id: true,
+              ticketNo: true,
+              summary: true,
+              status: true,
+              itPriority: true,
+              assignedToUserId: true,
+              updatedAt: true,
+            },
+          }),
+
+          prisma.ticket.findMany({
+            where: {
+              itPriority: "Urgent",
+              ...activeTicketWhere,
+            },
+            orderBy: [
+              { updatedAt: "desc" },
+              { ticketNo: "desc" },
+            ],
+            take: 5,
+            select: {
+              id: true,
+              ticketNo: true,
+              summary: true,
+              status: true,
+              itPriority: true,
+              assignedToUserId: true,
+              updatedAt: true,
+            },
+          }),
+        ]);
+
+        return res.status(200).json({
+          data: {
+            unassignedTicketCount,
+            ownedByCurrentUserCount,
+            statusCounts: Object.fromEntries(
+              statusGroups.map((item) => [
+                item.status,
+                item._count._all,
+              ])
+            ),
+            priorityCounts: Object.fromEntries(
+              priorityGroups.map((item) => [
+                item.itPriority,
+                item._count._all,
+              ])
+            ),
+            recentTickets,
+            urgentTickets,
+          },
+        });
+      } catch (error) {
+        console.error(
+          "Failed to load staff dashboard:",
+          error
+        );
+
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Failed to load staff dashboard.",
+            fieldErrors: [],
+          },
+        });
+      }
+    }
+  );
   app.get(
     "/api/v1/staff/assignees",
     async (

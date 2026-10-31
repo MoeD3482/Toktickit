@@ -489,7 +489,32 @@ export function getRequesterDashboard(): Promise<
     "Unable to load the Requester Dashboard."
   );
 }
+export interface StaffDashboardTicket {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  status: TicketStatus;
+  itPriority: ITPriority | null;
+  assignedToUserId: string | null;
+  updatedAt: string;
+}
 
+export interface StaffDashboard {
+  unassignedTicketCount: number;
+  ownedByCurrentUserCount: number;
+  statusCounts: Partial<Record<TicketStatus, number>>;
+  priorityCounts: Partial<Record<ITPriority, number>>;
+  recentTickets: StaffDashboardTicket[];
+  urgentTickets: StaffDashboardTicket[];
+}
+
+export function getStaffDashboard(): Promise<StaffDashboard> {
+  return staffRequest(
+    "/api/v1/staff/dashboard",
+    {},
+    "Unable to load the Staff Dashboard."
+  );
+}
 export interface TicketDetail {
   id: string;
   ticketNo: string;
