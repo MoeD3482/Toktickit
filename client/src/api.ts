@@ -648,6 +648,7 @@ export type ITPriority = RequestedPriority;
 
 export type TicketStatus =
   | "New"
+  | "Open"
   | "InProgress"
   | "WaitingForRequester"
   | "Resolved"
@@ -945,10 +946,12 @@ export function updateStaffITPriority(
 export function updateStaffStatus(
   ticketId: string,
   status: TicketStatus,
-  reason: string
+  reason: string,
+  expectedUpdatedAt: string
 ): Promise<{
   id: string;
   status: TicketStatus;
+  updatedAt: string;
 }> {
   return staffRequest(
     `/api/v1/staff/tickets/${ticketId}/status`,
@@ -960,6 +963,7 @@ export function updateStaffStatus(
       body: JSON.stringify({
         status,
         reason,
+        expectedUpdatedAt,
       }),
     },
     "Unable to update Ticket status."

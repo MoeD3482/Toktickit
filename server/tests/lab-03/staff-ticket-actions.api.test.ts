@@ -1,3 +1,4 @@
+
 import {
   afterEach,
   beforeEach,
@@ -18,7 +19,9 @@ const ticketPrefix = "STAFF-ACTIONS-";
 
 async function cleanupFixtures() {
   clearSessionsForTests();
+
   const prisma = getPrisma();
+
   const ticketWhere = {
     ticket: {
       ticketNo: { startsWith: ticketPrefix },
@@ -28,12 +31,15 @@ async function cleanupFixtures() {
   await prisma.ticketAction.deleteMany({ where: ticketWhere });
   await prisma.ticketComment.deleteMany({ where: ticketWhere });
   await prisma.internalNote.deleteMany({ where: ticketWhere });
+
   await prisma.ticket.deleteMany({
     where: { ticketNo: { startsWith: ticketPrefix } },
   });
+
   await prisma.developmentRequester.deleteMany({
     where: { email: { startsWith: emailPrefix } },
   });
+
   await prisma.user.deleteMany({
     where: { email: { startsWith: emailPrefix } },
   });
@@ -47,6 +53,7 @@ async function createUser(options: {
 }) {
   const prisma = getPrisma();
   const email = `${emailPrefix}${randomUUID()}@example.com`;
+
   const user = await prisma.user.create({
     data: {
       displayName: options.displayName,
@@ -74,9 +81,11 @@ async function createUser(options: {
 
 async function createTicket(requesterId: string) {
   const prisma = getPrisma();
+
   const category = await prisma.category.findFirstOrThrow({
     where: { isActive: true },
   });
+
   const relatedSystem = await prisma.relatedSystem.findFirstOrThrow({
     where: { isActive: true },
   });
@@ -99,12 +108,36 @@ async function createTicket(requesterId: string) {
 
 async function signIn(email: string) {
   const agent = request.agent(app);
+
   const response = await agent.post("/api/v1/auth/login").send({
     email,
     password: "CurrentPass123",
   });
+
   expect(response.status).toBe(200);
+
   return agent;
+}
+
+// Get the latest Ticket timestamp before every status update.
+async function updateTicketStatus(
+  agent: ReturnType<typeof request.agent>,
+  ticketId: string,
+  status: string,
+  reason = ""
+) {
+  const ticket = await getPrisma().ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    select: { updatedAt: true },
+  });
+
+  return agent
+    .patch(`/api/v1/staff/tickets/${ticketId}/status`)
+    .send({
+      status,
+      reason,
+      expectedUpdatedAt: ticket.updatedAt.toISOString(),
+    });
 }
 
 describe.sequential("Lab 3 staff ticket management API", () => {
@@ -117,41 +150,52 @@ describe.sequential("Lab 3 staff ticket management API", () => {
       roles: ["Requester"],
       requesterProfile: true,
     });
+
     const staff = await createUser({
       displayName: "Workflow Staff",
       roles: ["ITStaff"],
     });
+
     const secondStaff = await createUser({
       displayName: "Workflow Assignee",
       roles: ["ITStaff"],
     });
+
     const inactiveStaff = await createUser({
       displayName: "Inactive Assignee",
       roles: ["ITStaff"],
       isActive: false,
     });
+
     const nonStaff = await createUser({
       displayName: "Requester Cannot Be Assigned",
       roles: ["Requester"],
     });
+
     const ticket = await createTicket(requester.id);
     const staffAgent = await signIn(staff.email);
 
+    // Claim Ticket.
     const claim = await staffAgent.post(
       `/api/v1/staff/tickets/${ticket.id}/claim`
     );
+
     expect(claim.status).toBe(200);
     expect(claim.body.data.assignedTo.id).toBe(staff.id);
 
+    // Prevent duplicate claims.
     const conflict = await staffAgent.post(
       `/api/v1/staff/tickets/${ticket.id}/claim`
     );
+
     expect(conflict.status).toBe(409);
     expect(conflict.body.error.code).toBe("TICKET_ALREADY_ASSIGNED");
 
+    // Reject inactive and non-staff assignees.
     const invalidInactive = await staffAgent
       .patch(`/api/v1/staff/tickets/${ticket.id}/assignment`)
       .send({ assignedToUserId: inactiveStaff.id });
+
     const invalidRole = await staffAgent
       .patch(`/api/v1/staff/tickets/${ticket.id}/assignment`)
       .send({ assignedToUserId: nonStaff.id });
@@ -164,40 +208,64 @@ describe.sequential("Lab 3 staff ticket management API", () => {
       );
     }
 
+    // Reassign Ticket.
     const assignment = await staffAgent
       .patch(`/api/v1/staff/tickets/${ticket.id}/assignment`)
       .send({ assignedToUserId: secondStaff.id });
+
     expect(assignment.status).toBe(200);
     expect(assignment.body.data.assignedTo.id).toBe(secondStaff.id);
 
+    // Change IT Priority.
     const priority = await staffAgent
       .patch(`/api/v1/staff/tickets/${ticket.id}/it-priority`)
       .send({ itPriority: "Urgent" });
+
     expect(priority.status).toBe(200);
     expect(priority.body.data.itPriority).toBe("Urgent");
 
-    const status = await staffAgent
-      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
-      .send({
-        status: "InProgress",
-        reason: "Started VPN investigation.",
-      });
-    expect(status.status).toBe(200);
-    expect(status.body.data.status).toBe("InProgress");
+    // Approved workflow: New -> Open -> InProgress.
+    const openStatus = await updateTicketStatus(
+      staffAgent,
+      ticket.id,
+      "Open"
+    );
 
-    const invalidStatus = await staffAgent
-      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
-      .send({ status: "Closed" });
+    expect(openStatus.status).toBe(200);
+    expect(openStatus.body.data.status).toBe("Open");
+
+    const inProgressStatus = await updateTicketStatus(
+      staffAgent,
+      ticket.id,
+      "InProgress",
+      "Started VPN investigation."
+    );
+
+    expect(inProgressStatus.status).toBe(200);
+    expect(inProgressStatus.body.data.status).toBe("InProgress");
+
+    // Closed is not allowed directly from InProgress.
+    const invalidStatus = await updateTicketStatus(
+      staffAgent,
+      ticket.id,
+      "Closed"
+    );
+
     expect(invalidStatus.status).toBe(422);
     expect(invalidStatus.body.error.code).toBe("VALIDATION_ERROR");
 
+    // Add comments, internal notes, and an Action Taken.
     const [comment, note, action] = await Promise.all([
       staffAgent
         .post(`/api/v1/tickets/${ticket.id}/comments`)
         .send({ body: "We are investigating the VPN issue." }),
+
       staffAgent
         .post(`/api/v1/staff/tickets/${ticket.id}/internal-notes`)
-        .send({ body: "Account synchronization appears delayed." }),
+        .send({
+          body: "Account synchronization appears delayed.",
+        }),
+
       staffAgent
         .post(`/api/v1/staff/tickets/${ticket.id}/actions`)
         .send({ body: "Reviewed connection logs." }),
@@ -207,18 +275,24 @@ describe.sequential("Lab 3 staff ticket management API", () => {
     expect(note.status).toBe(201);
     expect(action.status).toBe(201);
 
+    // Verify complete Ticket detail.
     const detail = await staffAgent.get(
       `/api/v1/staff/tickets/${ticket.id}`
     );
+
     expect(detail.status).toBe(200);
+
     expect(detail.body.data).toEqual(
       expect.objectContaining({
         requestedPriority: "High",
         itPriority: "Urgent",
         status: "InProgress",
-        assignedTo: expect.objectContaining({ id: secondStaff.id }),
+        assignedTo: expect.objectContaining({
+          id: secondStaff.id,
+        }),
       })
     );
+
     expect(detail.body.data.comments).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -227,6 +301,7 @@ describe.sequential("Lab 3 staff ticket management API", () => {
         }),
       ])
     );
+
     expect(detail.body.data.internalNotes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -235,7 +310,12 @@ describe.sequential("Lab 3 staff ticket management API", () => {
         }),
       ])
     );
-    expect(detail.body.data.actions.map((item: { actionType: string }) => item.actionType)).toEqual(
+
+    expect(
+      detail.body.data.actions.map(
+        (item: { actionType: string }) => item.actionType
+      )
+    ).toEqual(
       expect.arrayContaining([
         "TicketClaimed",
         "AssignmentChanged",
@@ -252,20 +332,26 @@ describe.sequential("Lab 3 staff ticket management API", () => {
       roles: ["Requester"],
       requesterProfile: true,
     });
+
     const staff = await createUser({
       displayName: "Comment Staff",
       roles: ["ITStaff"],
     });
+
     const ticket = await createTicket(requester.id);
+
     const requesterAgent = await signIn(requester.email);
     const staffAgent = await signIn(staff.email);
 
     const requesterComment = await requesterAgent
       .post(`/api/v1/tickets/${ticket.id}/comments`)
       .send({ body: "I can provide a screenshot." });
+
     const staffNote = await staffAgent
       .post(`/api/v1/staff/tickets/${ticket.id}/internal-notes`)
-      .send({ body: "Use the account-sync troubleshooting runbook." });
+      .send({
+        body: "Use the account-sync troubleshooting runbook.",
+      });
 
     expect(requesterComment.status).toBe(201);
     expect(staffNote.status).toBe(201);
@@ -273,10 +359,13 @@ describe.sequential("Lab 3 staff ticket management API", () => {
     const comments = await requesterAgent.get(
       `/api/v1/tickets/${ticket.id}/comments`
     );
+
     expect(comments.status).toBe(200);
+
     expect(JSON.stringify(comments.body)).toContain(
       "I can provide a screenshot."
     );
+
     expect(JSON.stringify(comments.body)).not.toContain(
       "account-sync troubleshooting"
     );
@@ -284,11 +373,13 @@ describe.sequential("Lab 3 staff ticket management API", () => {
     const directInternalAccess = await requesterAgent.get(
       `/api/v1/staff/tickets/${ticket.id}`
     );
+
     expect(directInternalAccess.status).toBe(403);
 
     const invalidComment = await requesterAgent
       .post(`/api/v1/tickets/${ticket.id}/comments`)
       .send({ body: "" });
+
     expect(invalidComment.status).toBe(422);
     expect(invalidComment.body.error.code).toBe("VALIDATION_ERROR");
   });

@@ -1,3 +1,4 @@
+
 import {
   afterEach,
   beforeEach,
@@ -21,6 +22,7 @@ async function cleanupFixtures() {
   clearSessionsForTests();
 
   const prisma = getPrisma();
+
   const ticketWhere = {
     ticket: {
       ticketNo: {
@@ -65,6 +67,7 @@ async function createUser(options: {
   requesterProfile?: boolean;
 }) {
   const prisma = getPrisma();
+
   const email = `${emailPrefix}${randomUUID()}@example.com`;
 
   const user = await prisma.user.create({
@@ -128,27 +131,68 @@ async function signIn(email: string) {
   });
 
   expect(response.status).toBe(200);
+
   return agent;
 }
 
-async function moveToInProgress(
+// Fetch the latest updatedAt before every status transition.
+async function updateTicketStatus(
   agent: ReturnType<typeof request.agent>,
   ticketId: string,
+  status: string,
+  reason = ""
 ) {
-  const response = await agent
+  const ticket = await getPrisma().ticket.findUniqueOrThrow({
+    where: {
+      id: ticketId,
+    },
+    select: {
+      updatedAt: true,
+    },
+  });
+
+  return agent
     .patch(`/api/v1/staff/tickets/${ticketId}/status`)
-    .send({ status: "InProgress" });
+    .send({
+      status,
+      reason,
+      expectedUpdatedAt: ticket.updatedAt.toISOString(),
+    });
+}
+
+// Approved workflow: New -> Open -> InProgress.
+async function moveToInProgress(
+  agent: ReturnType<typeof request.agent>,
+  ticketId: string
+) {
+  const openResponse = await updateTicketStatus(
+    agent,
+    ticketId,
+    "Open"
+  );
+
+  expect(openResponse.status).toBe(200);
+  expect(openResponse.body.data.status).toBe("Open");
+
+  const response = await updateTicketStatus(
+    agent,
+    ticketId,
+    "InProgress"
+  );
 
   expect(response.status).toBe(200);
+  expect(response.body.data.status).toBe("InProgress");
 }
 
 async function resolveTicket(
   agent: ReturnType<typeof request.agent>,
-  ticketId: string,
+  ticketId: string
 ) {
-  return agent
-    .patch(`/api/v1/staff/tickets/${ticketId}/status`)
-    .send({ status: "Resolved" });
+  return updateTicketStatus(
+    agent,
+    ticketId,
+    "Resolved"
+  );
 }
 
 describe.sequential("Lab 4 Ticket resolution gate", () => {
@@ -177,8 +221,19 @@ describe.sequential("Lab 4 Ticket resolution gate", () => {
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
 
+    expect(response.body.error.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "status",
+          message: expect.stringContaining("Action Taken"),
+        }),
+      ])
+    );
+
     const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
-      where: { id: ticket.id },
+      where: {
+        id: ticket.id,
+      },
     });
 
     expect(savedTicket.status).toBe("InProgress");
@@ -211,6 +266,7 @@ describe.sequential("Lab 4 Ticket resolution gate", () => {
     });
 
     const agent = await signIn(staff.email);
+
     await moveToInProgress(agent, ticket.id);
 
     const response = await resolveTicket(agent, ticket.id);
@@ -218,8 +274,19 @@ describe.sequential("Lab 4 Ticket resolution gate", () => {
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
 
+    expect(response.body.error.fieldErrors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "status",
+          message: expect.stringContaining("follow-up"),
+        }),
+      ])
+    );
+
     const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
-      where: { id: ticket.id },
+      where: {
+        id: ticket.id,
+      },
     });
 
     expect(savedTicket.status).toBe("InProgress");
@@ -251,17 +318,99 @@ describe.sequential("Lab 4 Ticket resolution gate", () => {
     });
 
     const agent = await signIn(staff.email);
+
     await moveToInProgress(agent, ticket.id);
 
     const response = await resolveTicket(agent, ticket.id);
 
     expect(response.status).toBe(200);
     expect(response.body.data.status).toBe("Resolved");
+    expect(response.body.data.updatedAt).toBeDefined();
+
+    const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
+      where: {
+        id: ticket.id,
+      },
+    });
+
+    expect(savedTicket.status).toBe("Resolved");
+  });
+    it("allows an Administrator to perform a formal status transition", async () => {
+    const requester = await createUser({
+      displayName: "Admin Workflow Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const admin = await createUser({
+      displayName: "Workflow Administrator",
+      roles: ["Administrator"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(admin.email);
+
+    const response = await updateTicketStatus(
+      agent,
+      ticket.id,
+      "Open"
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.status).toBe("Open");
+  });
+
+  it("returns 409 when a status update uses a stale timestamp", async () => {
+    const requester = await createUser({
+      displayName: "Stale Workflow Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Stale Workflow Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    const originalUpdatedAt = ticket.updatedAt.toISOString();
+
+    const firstUpdate = await agent
+      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
+      .send({
+        status: "Open",
+        expectedUpdatedAt: originalUpdatedAt,
+      });
+
+    expect(firstUpdate.status).toBe(200);
+
+    const staleUpdate = await agent
+      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
+      .send({
+        status: "Cancelled",
+        expectedUpdatedAt: originalUpdatedAt,
+      });
+
+    expect(staleUpdate.status).toBe(409);
+    expect(staleUpdate.body.error.code).toBe(
+      "TICKET_STATUS_CONFLICT"
+    );
 
     const savedTicket = await getPrisma().ticket.findUniqueOrThrow({
       where: { id: ticket.id },
     });
 
-    expect(savedTicket.status).toBe("Resolved");
+    expect(savedTicket.status).toBe("Open");
+
+    const historyCount = await getPrisma().ticketAction.count({
+      where: {
+        ticketId: ticket.id,
+        actionType: "StatusChanged",
+      },
+    });
+
+    expect(historyCount).toBe(1);
   });
 });

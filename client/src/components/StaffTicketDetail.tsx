@@ -39,16 +39,25 @@ const priorities: ITPriority[] = [
 ];
 
 const transitions: Record<TicketStatus, TicketStatus[]> = {
-  New: ["InProgress", "Cancelled"],
+  New: ["Open", "Cancelled"],
+  Open: ["InProgress", "Cancelled"],
   InProgress: [
     "WaitingForRequester",
     "Resolved",
     "Cancelled",
   ],
-  WaitingForRequester: ["InProgress", "Resolved"],
+  WaitingForRequester: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Resolved: ["Closed", "Reopened"],
-  Closed: [],
-  Reopened: ["InProgress"],
+  Closed: ["Reopened"],
+  Reopened: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Cancelled: [],
 };
 
@@ -316,16 +325,24 @@ export default function StaffTicketDetail({
       );
       return;
     }
+if (!ticket) {
+  setErrorMessage(
+    "Ticket details are not available. Please reload the Ticket."
+  );
+  return;
+}
 
+const expectedUpdatedAt = ticket.updatedAt;
     void save(
       "status",
       "Status updated.",
       async () => {
         await updateStaffStatus(
-          ticketId,
-          nextStatus,
-          statusReason
-        );
+  ticketId,
+  nextStatus,
+  statusReason,
+  ticket.updatedAt
+);
 
         setNextStatus("");
         setStatusReason("");
