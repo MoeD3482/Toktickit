@@ -413,4 +413,209 @@ describe.sequential("Lab 4 Ticket resolution gate", () => {
 
     expect(historyCount).toBe(1);
   });
+
+  it("enforces every permitted and rejected status transition", async () => {
+    const prisma = getPrisma();
+
+    const requester = await createUser({
+      displayName: "Matrix Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Matrix Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    await prisma.actionTaken.create({
+      data: {
+        ticketId: ticket.id,
+        performedByUserId: staff.id,
+        actionAt: new Date(),
+        description: "Completed verification",
+        result: "Service restored",
+        followUpRequired: false,
+      },
+    });
+
+    const statuses = [
+      "New",
+      "Open",
+      "InProgress",
+      "WaitingForRequester",
+      "Resolved",
+      "Closed",
+      "Reopened",
+      "Cancelled",
+    ] as const;
+
+    type TestStatus = (typeof statuses)[number];
+
+    const transitions: Record<
+      TestStatus,
+      readonly TestStatus[]
+    > = {
+      New: ["Open", "Cancelled"],
+      Open: ["InProgress", "Cancelled"],
+      InProgress: [
+        "WaitingForRequester",
+        "Resolved",
+        "Cancelled",
+      ],
+      WaitingForRequester: [
+        "Open",
+        "InProgress",
+        "Cancelled",
+      ],
+      Resolved: ["Closed", "Reopened"],
+      Closed: ["Reopened"],
+      Reopened: [
+        "Open",
+        "InProgress",
+        "Cancelled",
+      ],
+      Cancelled: [],
+    };
+
+    for (const from of statuses) {
+      for (const to of statuses) {
+        await prisma.ticket.update({
+          where: { id: ticket.id },
+          data: { status: from },
+        });
+
+        const historyBefore =
+          await prisma.ticketAction.count({
+            where: {
+              ticketId: ticket.id,
+              actionType: "StatusChanged",
+            },
+          });
+
+        const response = await updateTicketStatus(
+          agent,
+          ticket.id,
+          to
+        );
+
+        const permitted = transitions[from].includes(to);
+
+        if (permitted) {
+          expect(response.status).toBe(200);
+          expect(response.body.data.status).toBe(to);
+        } else {
+          expect(response.status).toBe(422);
+          expect(response.body.error.code).toBe(
+            "VALIDATION_ERROR"
+          );
+
+          const savedTicket =
+            await prisma.ticket.findUniqueOrThrow({
+              where: { id: ticket.id },
+            });
+
+          expect(savedTicket.status).toBe(from);
+        }
+
+        const historyAfter =
+          await prisma.ticketAction.count({
+            where: {
+              ticketId: ticket.id,
+              actionType: "StatusChanged",
+            },
+          });
+
+        expect(historyAfter).toBe(
+          historyBefore + (permitted ? 1 : 0)
+        );
+      }
+    }
+  }, 30000);
+
+  it("rejects status changes from Requesters", async () => {
+    const requester = await createUser({
+      displayName: "Forbidden Workflow Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(requester.email);
+
+    const response = await updateTicketStatus(
+      agent,
+      ticket.id,
+      "Open"
+    );
+
+    expect(response.status).toBe(403);
+
+    const savedTicket =
+      await getPrisma().ticket.findUniqueOrThrow({
+        where: { id: ticket.id },
+      });
+
+    expect(savedTicket.status).toBe("New");
+  });
+
+  it("rejects unauthenticated status changes", async () => {
+    const response = await request(app)
+      .patch("/api/v1/staff/tickets/unknown-ticket/status")
+      .send({ status: "Open" });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("validates status, timestamp, and reason fields", async () => {
+    const requester = await createUser({
+      displayName: "Validation Workflow Requester",
+      roles: ["Requester"],
+      requesterProfile: true,
+    });
+
+    const staff = await createUser({
+      displayName: "Validation Workflow Staff",
+      roles: ["ITStaff"],
+    });
+
+    const ticket = await createTicket(requester.id);
+    const agent = await signIn(staff.email);
+
+    const invalidStatus = await agent
+      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
+      .send({
+        status: "Unknown",
+        expectedUpdatedAt: ticket.updatedAt.toISOString(),
+      });
+
+    expect(invalidStatus.status).toBe(422);
+
+    const missingTimestamp = await agent
+      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
+      .send({ status: "Open" });
+
+    expect(missingTimestamp.status).toBe(422);
+
+    const invalidReason = await agent
+      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
+      .send({
+        status: "Open",
+        reason: "x".repeat(501),
+        expectedUpdatedAt: ticket.updatedAt.toISOString(),
+      });
+
+    expect(invalidReason.status).toBe(422);
+
+    const savedTicket =
+      await getPrisma().ticket.findUniqueOrThrow({
+        where: { id: ticket.id },
+      });
+
+    expect(savedTicket.status).toBe("New");
+  });
+
 });
