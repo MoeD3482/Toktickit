@@ -1,3 +1,4 @@
+﻿import { LAB2_TEST_REQUESTER_PREFIX } from "../helpers/lab2-test-requesters.js";
 import { afterEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { randomUUID } from "crypto";
@@ -48,7 +49,7 @@ describe("GET /api/v1/tickets", () => {
 
     const requesters =
       await prisma.developmentRequester.findMany({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
         take: 2,
         orderBy: { displayName: "asc" },
       });
@@ -138,7 +139,7 @@ describe("GET /api/v1/tickets", () => {
 
     const requester =
       await prisma.developmentRequester.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const category = await prisma.category.findFirst({
@@ -225,7 +226,7 @@ describe("GET /api/v1/tickets", () => {
 
     const requester =
       await prisma.developmentRequester.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const categories =
@@ -320,7 +321,7 @@ describe("GET /api/v1/tickets", () => {
 
     const requester =
       await prisma.developmentRequester.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const category =
@@ -410,7 +411,7 @@ describe("GET /api/v1/tickets", () => {
 
     const requester =
       await prisma.developmentRequester.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const category =

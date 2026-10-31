@@ -1,3 +1,4 @@
+﻿import { LAB2_TEST_REQUESTER_PREFIX } from "../helpers/lab2-test-requesters.js";
 import { afterEach, describe, it, expect } from "vitest";
 import request from "supertest";
 import { randomUUID } from "crypto";
@@ -31,7 +32,7 @@ describe("POST /api/v1/tickets", () => {
     const prisma = getPrisma();
 
     const requester = await prisma.developmentRequester.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
     });
 
     const category = await prisma.category.findFirst({
@@ -90,7 +91,7 @@ describe("POST /api/v1/tickets", () => {
 
   it("rejects invalid Ticket data", async () => {
     const requester = await getPrisma().developmentRequester.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
     });
 
     expect(requester).not.toBeNull();
@@ -135,7 +136,7 @@ describe("POST /api/v1/tickets", () => {
     const prisma = getPrisma();
 
     const requester = await prisma.developmentRequester.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
     });
 
     const category = await prisma.category.findFirst({
@@ -198,7 +199,7 @@ describe("POST /api/v1/tickets", () => {
 
     const requesters =
       await prisma.developmentRequester.findMany({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
         take: 2,
       });
 
