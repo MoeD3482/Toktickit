@@ -1208,3 +1208,82 @@ export async function getAdminUsers(
 
   return response.json();
 }
+/* =========================================================
+   Lab 4 - Actions Taken
+   ========================================================= */
+
+export interface ActionTaken {
+  id: string;
+  ticketId: string;
+  performedByUserId: string;
+  actionAt: string;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  performedBy: StaffActor;
+}
+
+export interface ActionTakenInput {
+  actionAt: string;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+}
+
+export interface UpdateActionTakenInput
+  extends ActionTakenInput {
+  expectedUpdatedAt: string;
+}
+
+export function getTicketActionsTaken(
+  ticketId: string
+): Promise<ActionTaken[]> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken`,
+    {},
+    "Unable to load Actions Taken."
+  );
+}
+
+export function createTicketActionTaken(
+  ticketId: string,
+  input: ActionTakenInput,
+  idempotencyKey: string
+): Promise<ActionTaken> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to create Action Taken."
+  );
+}
+
+export function updateTicketActionTaken(
+  ticketId: string,
+  actionId: string,
+  input: UpdateActionTakenInput
+): Promise<ActionTaken> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken/${encodeURIComponent(actionId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to update Action Taken."
+  );
+}
