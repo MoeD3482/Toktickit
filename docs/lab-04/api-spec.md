@@ -1,4 +1,4 @@
-# Lab 4 — REST API Specification
+# Lab 4 â€” REST API Specification
 
 ## 1. Purpose
 
@@ -123,24 +123,68 @@ The project should not expose internal exceptions to clients.
 
 ## 4. Ticket Workflow
 
-Continue to use the existing Ticket endpoints and conventions.
+### Endpoint
 
-Status changes must use the approved existing endpoint if available,
-or a single documented transition endpoint consistent with the project.
+`PATCH /api/v1/staff/tickets/:ticketId/status`
 
-The server validates:
-- Authenticated actor and role.
-- Current Ticket status.
-- Requested target status.
-- Permitted transition.
-- Resolution gate for Resolved.
-- Concurrency/staleness of the Ticket update.
+Only authenticated IT Staff and Administrators may perform formal
+Ticket status changes.
 
-Use `409 Conflict` for stale or conflicting workflow changes when
-appropriate. Use validation errors for invalid transitions.
+### Request Body
 
-Requester resolution feedback remains advisory and does not directly
-set status to Resolved.
+```json
+{
+  "status": "Open",
+  "reason": "Ticket accepted for investigation.",
+  "expectedUpdatedAt": "2026-10-31T10:00:00.000Z"
+}
+
+### Approved Ticket Status Transition Matrix
+
+Only authenticated IT Staff and Administrators may perform formal status changes.
+
+| Current Status | Permitted Next Status |
+|---|---|
+| New | Open, Cancelled |
+| Open | InProgress, Cancelled |
+| InProgress | WaitingForRequester, Resolved, Cancelled |
+| WaitingForRequester | Open, InProgress, Cancelled |
+| Resolved | Closed, Reopened |
+| Closed | Reopened |
+| Reopened | Open, InProgress, Cancelled |
+| Cancelled | None |
+
+### Status Update Request
+
+Endpoint: `PATCH /api/v1/staff/tickets/:ticketId/status`
+
+Required request fields:
+- `status`: permitted target status.
+- `reason`: optional explanation, maximum 500 characters.
+- `expectedUpdatedAt`: required latest Ticket timestamp in ISO 8601 format.
+
+### Resolution Requirements
+
+A Ticket can transition to `Resolved` only when:
+1. At least one Action Taken exists.
+2. The latest Action Taken does not require follow-up.
+
+Requester resolution feedback is advisory and does not directly change Ticket status.
+
+### Concurrency and Conflict Handling
+
+The backend performs an atomic conditional update using Ticket ID, current status, and `updatedAt`.
+
+The status update and TicketAction history record are saved in one transaction.
+
+A stale or concurrent update returns:
+- HTTP `409 Conflict`
+- Error code: `TICKET_STATUS_CONFLICT`
+- The client must reload Ticket details before retrying.
+
+Invalid transitions and failed resolution requirements return HTTP `422`.
+
+Successful updates return HTTP `200` with `id`, `status`, and `updatedAt`.
 
 ## 5. Requester Dashboard
 
@@ -225,7 +269,7 @@ Errors must:
 
 ## 9. Compatibility and Regression
 
-Preserve all approved Lab 1–3 API behavior, including:
+Preserve all approved Lab 1â€“3 API behavior, including:
 - Authentication and current-user behavior.
 - Requester Tickets and attachments.
 - Public Comments.
@@ -252,12 +296,12 @@ Authentication: Required
 Allowed roles: ITStaff, Administrator
 
 Required header:
-- Idempotency-Key: unique request key (1–128 characters)
+- Idempotency-Key: unique request key (1â€“128 characters)
 
 Request body:
 - actionAt: valid date/time string
-- description: required, 1–4000 characters
-- result: required, 1–4000 characters
+- description: required, 1â€“4000 characters
+- result: required, 1â€“4000 characters
 - followUpRequired: boolean (defaults to false)
 - followUpNote: nullable, maximum 2000 characters
 - attachmentNotes: nullable, maximum 2000 characters

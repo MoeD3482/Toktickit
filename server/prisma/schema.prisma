@@ -23,6 +23,7 @@ enum ITPriority {
 
 enum TicketStatus {
   New
+  Open
   InProgress
   WaitingForRequester
   Resolved
@@ -190,6 +191,8 @@ model ActionTaken {
   attachmentNotes   String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  idempotencyKey     String?  @unique
+  requestFingerprint String?
 
   ticket      Ticket @relation(fields: [ticketId], references: [id])
   performedBy User   @relation("ActionTakenPerformedBy", fields: [performedByUserId], references: [id])

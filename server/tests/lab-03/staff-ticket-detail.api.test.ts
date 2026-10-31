@@ -1,3 +1,4 @@
+
 import {
   afterEach,
   beforeEach,
@@ -18,6 +19,7 @@ const ticketPrefix = "STAFF-DETAIL-";
 
 async function cleanupFixtures() {
   clearSessionsForTests();
+
   const prisma = getPrisma();
 
   await prisma.ticketAction.deleteMany({
@@ -118,6 +120,27 @@ async function signIn(email: string) {
   return agent;
 }
 
+// Always use the latest database timestamp.
+async function updateTicketStatus(
+  agent: ReturnType<typeof request.agent>,
+  ticketId: string,
+  status: string,
+  reason = ""
+) {
+  const ticket = await getPrisma().ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    select: { updatedAt: true },
+  });
+
+  return agent
+    .patch(`/api/v1/staff/tickets/${ticketId}/status`)
+    .send({
+      status,
+      reason,
+      expectedUpdatedAt: ticket.updatedAt.toISOString(),
+    });
+}
+
 describe.sequential("Lab 3 staff ticket detail API", () => {
   beforeEach(cleanupFixtures);
   afterEach(cleanupFixtures);
@@ -142,6 +165,7 @@ describe.sequential("Lab 3 staff ticket detail API", () => {
     );
 
     expect(response.status).toBe(200);
+
     expect(response.body.data).toEqual(
       expect.objectContaining({
         id: ticket.id,
@@ -156,6 +180,7 @@ describe.sequential("Lab 3 staff ticket detail API", () => {
     expect(response.body.data).toHaveProperty("comments");
     expect(response.body.data).toHaveProperty("internalNotes");
     expect(response.body.data).toHaveProperty("actions");
+    expect(response.body.data).toHaveProperty("updatedAt");
   });
 
   it("includes updated assignment, priority, status, and history", async () => {
@@ -190,20 +215,32 @@ describe.sequential("Lab 3 staff ticket detail API", () => {
 
     expect(priority.status).toBe(200);
 
-    const status = await staffAgent
-      .patch(`/api/v1/staff/tickets/${ticket.id}/status`)
-      .send({
-        status: "InProgress",
-        reason: "Started investigation.",
-      });
+    // Approved workflow: New -> Open -> InProgress.
+    const openStatus = await updateTicketStatus(
+      staffAgent,
+      ticket.id,
+      "Open"
+    );
+
+    expect(openStatus.status).toBe(200);
+    expect(openStatus.body.data.status).toBe("Open");
+
+    const status = await updateTicketStatus(
+      staffAgent,
+      ticket.id,
+      "InProgress",
+      "Started investigation."
+    );
 
     expect(status.status).toBe(200);
+    expect(status.body.data.status).toBe("InProgress");
 
     const detail = await staffAgent.get(
       `/api/v1/staff/tickets/${ticket.id}`
     );
 
     expect(detail.status).toBe(200);
+
     expect(detail.body.data).toEqual(
       expect.objectContaining({
         itPriority: "Urgent",
