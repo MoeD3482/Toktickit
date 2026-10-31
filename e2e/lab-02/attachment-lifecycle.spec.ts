@@ -108,9 +108,7 @@ test(
     await fileInput.setInputFiles({
       name: filename,
       mimeType: "application/pdf",
-      buffer: Buffer.from(
-        "%PDF-1.4\nTokTickIT E2E Attachment"
-      ),
+      buffer: Buffer.from("%PDF-1.4\nTokTickIT E2E Attachment"),
     });
 
     // Confirm that the browser file input received the selected file.
