@@ -22,6 +22,10 @@ import {
 
 interface StaffQueueProps {
   onSelectTicket: (ticketId: string) => void;
+  initialQuery?: Pick<
+    StaffTicketQuery,
+    "status" | "itPriority" | "assignedToUserId"
+  >;
 }
 
 const priorities: RequestedPriority[] = [
@@ -67,7 +71,8 @@ function priorityClass(
 
 export default function StaffQueue({
   onSelectTicket,
-}: StaffQueueProps) {
+  initialQuery,
+}: StaffQueueProps)  {
   const [tickets, setTickets] = useState<
     StaffTicketListItem[]
   >([]);
@@ -96,10 +101,16 @@ export default function StaffQueue({
     RequestedPriority | ""
   >("");
   const [itPriority, setITPriority] = useState<ITPriority | "">(
-    ""
-  );
-  const [status, setStatus] = useState<TicketStatus | "">("");
-  const [assignedToUserId, setAssignedToUserId] = useState("");
+  initialQuery?.itPriority ?? ""
+);
+
+const [status, setStatus] = useState<TicketStatus | "">(
+  initialQuery?.status ?? ""
+);
+
+const [assignedToUserId, setAssignedToUserId] = useState(
+  initialQuery?.assignedToUserId ?? ""
+);
   const [sort, setSort] = useState<
     | "ticketNo"
     | "createdAt"
