@@ -1,341 +1,563 @@
-# Lab 4 — Test Plan and Acceptance-Criterion Traceability
+﻿# Lab 4 — Test Plan and Acceptance-Criterion Traceability
 
 ## 1. Purpose
 
-This document defines the test plan and records the verification results for Lab 4 Actions Taken, Ticket Workflow, Requester Dashboard, IT Staff Dashboard, authorization, regression behavior, and application quality.
+This document defines the test strategy, actual test files, acceptance-criterion traceability, and final verification results for ToktickIT Lab 4.
 
-Tests must not be marked Passed until they have actually been executed successfully. Test results must reflect the actual test files and commands used.
+The verification scope includes:
+
+- Actions Taken creation, retrieval, validation, and authorization.
+- Ticket status transitions and resolution requirements.
+- Requester Dashboard and IT Staff Dashboard.
+- Dashboard calculations and drill-down behavior.
+- Database migrations, migration safety, and repeatable seed fixtures.
+- Frontend component behavior and safe error handling.
+- Responsive layout and automated accessibility checks.
+- Playwright end-to-end workflows.
+- Regression testing for Labs 1–3.
+- TypeScript checks and production builds.
+
+Only tests and checks that were actually executed successfully are recorded as Passed.
 
 ## 2. Test Strategy
 
-Testing includes:
+The project uses the following verification methods:
 
-- Unit and validation tests.
-- Backend API and integration tests.
-- Authorization and ownership tests.
-- Database migration and seed tests.
-- Frontend component and UI-style tests.
-- Ticket workflow and concurrency tests.
-- Responsive and accessibility checks.
-- Performance-smoke tests.
-- Playwright end-to-end tests.
-- Regression testing for Labs 1–3.
+1. Backend API and integration tests.
+2. Authorization, ownership, and validation tests.
+3. Ticket workflow and resolution-gate tests.
+4. Database migration safety tests.
+5. Read-only database integrity verification.
+6. Repeatable Lab 4 seed verification.
+7. Frontend component and interaction tests.
+8. Playwright end-to-end tests.
+9. Accessibility scans using axe-core.
+10. Responsive viewport, keyboard-focus, and performance-smoke checks.
+11. Labs 1–3 regression tests.
+12. TypeScript and production build checks.
 
 ### 2.1 Verification Environment
 
-- Project: ToktickIT
-- Backend: Node.js API and Prisma
-- Frontend: React and Vite
-- Backend test runner: Vitest
-- Frontend test runner: Vitest
-- E2E test runner: Playwright
-- E2E browser: Chromium
-- E2E workers: 1
-- Frontend development URL: `http://localhost:5173`
-- Backend development URL: `http://localhost:3000`
+| Item | Environment |
+|---|---|
+| Project | ToktickIT |
+| Backend | Node.js API |
+| ORM | Prisma 5.22.0 |
+| Database | PostgreSQL |
+| Database name | `toktickit` |
+| Frontend | React and Vite |
+| Backend test runner | Vitest 2.1.9 |
+| Frontend test runner | Vitest 2.1.9 |
+| E2E test runner | Playwright |
+| E2E browser | Chromium |
+| E2E workers | 1 |
+| Frontend development URL | `http://localhost:5173` |
+| Backend development URL | `http://localhost:3000` |
+| Verification date | 1 November 2026 |
 
 ## 3. Actual Test Files
 
 ### 3.1 Backend
 
-The following Lab 4 backend test files exist:
+Lab 4 backend test files:
 
 - `server/tests/lab-04/actions-taken.api.test.ts`
 - `server/tests/lab-04/ticket-workflow.api.test.ts`
 - `server/tests/lab-04/requester-dashboard.api.test.ts`
 - `server/tests/lab-04/staff-dashboard.api.test.ts`
+- `server/tests/lab-04/migration-safety.test.ts`
 
-The workflow test file is `server/tests/lab-04/ticket-workflow.api.test.ts`.
+The migration safety test file contains three static SQL verification tests.
 
 ### 3.2 Frontend
 
-The following Lab 4 frontend test files exist:
+Lab 4 frontend component test files:
 
-- `client/tests/lab-04/ActionsTakenSection.test.tsx`
+- `client/tests/lab-04/ActionsTaken.test.tsx`
 - `client/tests/lab-04/RequesterDashboard.test.tsx`
-
-The following additional component tests have now been implemented:
-
-- Staff Dashboard component test.
-- Ticket Workflow component test.
+- `client/tests/lab-04/StaffDashboard.test.tsx`
+- `client/tests/lab-04/TicketWorkflow.test.tsx`
 
 ### 3.3 End-to-End
 
-The following Lab 4 E2E test exists:
+Lab 4 E2E test files:
 
+- `e2e/lab-04/actions-taken-flow.spec.ts`
+- `e2e/lab-04/ticket-resolution.spec.ts`
 - `e2e/lab-04/dashboards.spec.ts`
+- `e2e/lab-04/staff-dashboard.spec.ts`
+- `e2e/lab-04/accessibility.spec.ts`
 
-The following Lab 4 E2E tests have now been implemented:
+### 3.4 Regression Test Files
 
-- Actions Taken E2E flow.
-- Ticket Resolution E2E flow.
-
-### 3.4 Existing Regression Test Files
-
-The existing E2E regression files include:
+Existing regression coverage includes:
 
 - `e2e/authentication.spec.ts`
 - `e2e/lab-02/attachment-lifecycle.spec.ts`
 - `e2e/lab-02/create-ticket.spec.ts`
 - `e2e/staff-ticket-flow.spec.ts`
 - `e2e/user-administration.spec.ts`
+- Existing backend and frontend test files for Labs 1–3.
 
-### 3.5 Additional Verification Configuration
+### 3.5 Additional Verification Files
 
-The following root-level E2E and TypeScript configuration files are used:
-
+- `server/prisma/seed-lab4.ts`
+- `server/prisma/verify-lab4-integrity.ts`
 - `playwright.config.ts`
 - `tsconfig.json`
-- `e2e/package.json`
 
-The root project includes TypeScript and Node type definitions for E2E type checking.
+The `verify-lab4-integrity.ts` script performs read-only database checks. It does not create, update, or delete project records.
 
 ## 4. Backend API and Authorization Tests
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| API-01 | AC-01 | Create Action Taken with valid data | Action is saved under the correct Ticket | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-02 | AC-02 | Create an action while authenticated as a staff user | Performer is derived from authenticated identity | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-03 | AC-03 | Submit an action requiring follow-up without a follow-up note | Request is rejected with a safe validation error | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-04 | AC-03 | Submit an action with follow-up information | Valid follow-up note is saved | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-05 | AC-01 | Create an action with missing required fields or invalid values | Request is rejected without creating an invalid record | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-06 | AC-04 | Requester retrieves actions for an owned Ticket | Permitted Action Taken information is returned | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-07 | AC-04 | Requester attempts to create or edit an action | Request is forbidden | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-08 | AC-04 | Requester attempts to access another Requester's Ticket actions | Access is denied without leaking private information | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-09 | AC-01 | IT Staff or Administrator accesses a permitted Ticket | Authorized create and update operations succeed | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-10 | AC-05 | Retrieve a Ticket containing multiple actions | All actions are returned in stable order | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-11 | AC-01 | Reference a nonexistent or inaccessible Ticket | Safe not-found or forbidden response is returned | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| API-12 | AC-01 | Repeat a submission or retry a request | Duplicate or conflicting behavior is handled safely | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
+The Actions Taken API test suite verifies creation, authenticated performer identity, validation, authorization, ownership, multiple actions, retrieval, and safe failure behavior.
 
-The backend test suite was executed successfully. The four Lab 4 backend test files contain 37 tests in total:
+The four functional Lab 4 backend API test files contain 37 tests.
 
-- Actions Taken API: 18 tests.
-- Requester Dashboard API: 5 tests.
-- Staff Dashboard API: 5 tests.
-- Ticket Resolution Gate API: 5 tests.
+| Test Area | Test File | Actual Result |
+|---|---|---|
+| Actions Taken creation and validation | `actions-taken.api.test.ts` | Passed — 18 tests |
+| Requester Dashboard API | `requester-dashboard.api.test.ts` | Passed — 5 tests |
+| Staff Dashboard API | `staff-dashboard.api.test.ts` | Passed — 5 tests |
+| Ticket workflow and resolution gate | `ticket-workflow.api.test.ts` | Passed — 9 tests |
 
-The aggregate suite result does not independently prove that every requirement above has a one-to-one test mapping. Individual test ID traceability still needs review.
+The Actions Taken API coverage includes:
+
+- Creating an Action Taken for a Ticket.
+- Deriving the performer from the authenticated user.
+- Rejecting invalid or incomplete action data.
+- Requiring follow-up information when applicable.
+- Enforcing role authorization.
+- Enforcing Ticket ownership restrictions.
+- Preventing unauthorized Requester write operations.
+- Retrieving multiple Actions Taken for a Ticket.
+- Handling inaccessible or nonexistent Ticket references.
+- Handling duplicate or conflicting submissions safely.
+
+The complete backend suite also includes existing Labs 1–3 regression tests.
 
 ## 5. Ticket Workflow Tests
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| WF-01 | AC-07 | Execute each permitted status transition | Status changes according to the approved matrix | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-02 | AC-07 | Attempt a transition not permitted by the matrix | Backend rejects the transition | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-03 | AC-06 | Resolve a Ticket without any Action Taken | Resolution is rejected | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-04 | AC-06 | Resolve a Ticket when its most recent action requires follow-up | Resolution is rejected | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-05 | AC-06 | Resolve a Ticket when the resolution requirements are satisfied | Resolution succeeds for an authorized user | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-06 | AC-06 | Requester submits "Problem Appears Resolved" feedback | Feedback does not automatically change Ticket status | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-07 | AC-07 | Attempt a status change without required authorization | Backend rejects the operation | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-08 | AC-07 | Attempt to transition a Cancelled Ticket | Backend rejects the transition | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-09 | AC-07 | Two users attempt conflicting or stale Ticket updates | Stale changes are detected or safely rejected | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| WF-10 | AC-07 | Complete a successful status change | Ticket summary refreshes with the saved status | No frontend Ticket Workflow test file | Not Implemented |
+The Ticket workflow backend tests verify permitted and rejected status transitions, authorization, resolution requirements, and safe conflict behavior.
 
-The transition tests must follow the approved matrix in `docs/lab-04/specification.md`.
+The frontend `TicketWorkflow.test.tsx` component test file contains 10 tests and passed.
 
-If the matrix changes, update both documents and the relevant tests.
+The Ticket Resolution E2E flow also passed.
 
-The backend workflow test file passed as part of the backend suite. TicketWorkflow.test.tsx is implemented and passed (10 tests).
+| Test Area | Test File | Actual Result |
+|---|---|---|
+| Permitted and rejected status transitions | `server/tests/lab-04/ticket-workflow.api.test.ts` | Passed |
+| Resolution without a completed Action Taken | `server/tests/lab-04/ticket-workflow.api.test.ts` | Passed |
+| Resolution when follow-up remains required | `server/tests/lab-04/ticket-workflow.api.test.ts` | Passed |
+| Successful authorized resolution | `server/tests/lab-04/ticket-workflow.api.test.ts` | Passed |
+| Requester resolution feedback behavior | `server/tests/lab-04/ticket-workflow.api.test.ts` | Passed |
+| Frontend workflow interactions | `client/tests/lab-04/TicketWorkflow.test.tsx` | Passed — 10 tests |
+| Ticket resolution E2E | `e2e/lab-04/ticket-resolution.spec.ts` | Passed |
 
-## 6. Dashboard API Tests
+The transition rules are implemented and tested against the workflow requirements in `docs/lab-04/specification.md`.
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| DASH-01 | AC-08 | Retrieve Requester Dashboard data | Only the authenticated Requester's data is included | `server/tests/lab-04/requester-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-02 | AC-08 | Request dashboard data with no matching Tickets | Counts are zero and lists are empty | `server/tests/lab-04/requester-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-03 | AC-08 | Verify open, waiting, recent-update, and recent-resolution metrics | Values match the documented calculations | `server/tests/lab-04/requester-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-04 | AC-08 | Request another Requester's dashboard information | Unauthorized data is not returned | `server/tests/lab-04/requester-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-05 | AC-09 | Retrieve IT Staff Dashboard data | Only approved operational metrics are returned | `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-06 | AC-09 | Verify unassigned and current-user-owned Ticket counts | Counts match authoritative database queries | `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-07 | AC-09 | Verify status and IT Priority summaries | Counts match the documented grouping rules | `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-08 | AC-09 | Access the Staff Dashboard as Administrator | Approved Administrator access succeeds | `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-09 | AC-09 | Access the Staff Dashboard as an unauthorized role | Access is denied | `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| DASH-10 | AC-10 | Inspect dashboard response structure | Response contains concise summaries rather than full Ticket collections | `server/tests/lab-04/requester-dashboard.api.test.ts` and `server/tests/lab-04/staff-dashboard.api.test.ts` | Test file suites passed; individual ID mapping pending |
+## 6. Dashboard API and Component Tests
 
-Dashboard API test files passed as part of the backend test suite.
+### 6.1 Requester Dashboard
 
-The Requester Dashboard E2E test also passed and verified that the dashboard renders metrics and drills down into My Tickets.
+Backend coverage verifies:
 
-The Staff Dashboard E2E drill-down is implemented and passed.
+- Requester-specific dashboard information.
+- Empty dashboard results.
+- Open, waiting, recently updated, and recently resolved metrics.
+- Requester data ownership and authorization.
+- Dashboard response structure.
 
-Dashboard calculations, date boundaries, and time-zone handling must be checked against the engineering specification before final acceptance.
+Frontend coverage verifies:
 
-## 7. Database Migration and Regression Tests
+- Dashboard metric rendering.
+- Metric selection and filtered Ticket navigation.
+- Ticket detail selection.
+- Loading, empty, and safe error states.
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| DB-01 | AC-11 | Apply the Lab 4 migration to a Lab 3 database | Migration completes without discarding existing data | Existing project migration-test conventions | Not Verified |
-| DB-02 | AC-11 | Inspect existing Users, Tickets, Attachments, Comments, and Notes after migration | Existing records remain valid | Existing project migration-test conventions | Not Verified |
-| DB-03 | AC-11 | Run the seed operation more than once | No unintended duplicate seed records are created | Existing project seed-test conventions | Not Verified |
-| DB-04 | AC-05 | Retrieve a Ticket without Actions Taken | Ticket remains accessible and its action list is empty | `server/tests/lab-04/actions-taken.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| REG-01 | AC-12 | Run existing Lab 1 API and client regression tests | Previously approved behavior continues to work | Existing Lab 1 test files | Not Separately Verified |
-| REG-02 | AC-12 | Run existing Lab 2 requester ticket and attachment tests | Ticket creation, listing, details, and attachments continue to work | Existing Lab 2 test files | E2E regression tests passed; full Lab 2 regression not separately verified |
-| REG-03 | AC-12 | Run existing Lab 3 authentication and authorization tests | Roles, sessions, ownership, and protected operations continue to work | Existing Lab 3 test files | Backend and frontend suites passed; full Lab 3 mapping not separately verified |
-| REG-04 | AC-12 | Run IT Staff, Internal Notes, and Administrator user-management regression tests | Existing authorized workflows continue to work | Existing Lab 3 test files | Relevant E2E tests passed; full regression not separately verified |
+The Requester Dashboard component suite passed all three tests.
 
-The backend test command ran its configured pretest and posttest scripts. The pretest prepared Lab 2 test Requester accounts, and the posttest deactivated the two test Requester profiles and users.
+The Requester Dashboard E2E scenario also passed.
 
-This does not independently verify Lab 4 migration preservation or repeatable seed behavior.
+### 6.2 IT Staff Dashboard
 
-Database tests must use a controlled test database and must not reset or destroy real project data.
+Backend coverage verifies:
 
-## 8. Frontend Component and UI-Style Tests
+- Unassigned Ticket counts.
+- Current-user-owned Ticket counts.
+- Ticket status summaries.
+- IT Priority summaries.
+- Authorized Staff and Administrator access.
+- Unauthorized role rejection.
+- Dashboard response structure.
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| UI-01 | AC-05 | Render Actions Taken with multiple records | Each action is displayed in stable order | `client/tests/lab-04/ActionsTakenSection.test.tsx` | Test file suite passed; individual ID mapping pending |
-| UI-02 | AC-03 | Submit incomplete Action Taken form data | Appropriate validation messages appear | `client/tests/lab-04/ActionsTakenSection.test.tsx` | Test file suite passed; individual ID mapping pending |
-| UI-03 | AC-04 | Render Actions Taken as Requester | Actions are read-only and no write controls are offered | `client/tests/lab-04/ActionsTakenSection.test.tsx` | Test file suite passed; individual ID mapping pending |
-| UI-04 | AC-01 | Submit a valid create or edit form | Saved action information appears after success | `client/tests/lab-04/ActionsTakenSection.test.tsx` | Test file suite passed; individual ID mapping pending |
-| UI-05 | AC-08 | Render Requester Dashboard metrics and Ticket links | Correct labels, values, and destinations appear | `client/tests/lab-04/RequesterDashboard.test.tsx` | Test file suite passed; individual ID mapping pending |
-| UI-06 | AC-09 | Render Staff Dashboard metrics and Ticket links | Correct operational information and destinations appear | No Staff Dashboard component test file | Not Implemented |
-| UI-07 | AC-10 | Select an actionable dashboard metric | Correct filtered view or Ticket Detail is opened | Dashboard component tests | Partially Verified; Requester E2E passed |
-| UI-08 | AC-13 | Inspect loading, empty, validation, and failure states | Feedback is visible and understandable | Relevant component tests | Not Fully Verified |
-| UI-09 | AC-13 | Inspect keyboard focus and form labels | Controls are labelled and keyboard-operable | Relevant component and accessibility tests | Not Verified |
-| UI-10 | AC-13 | Inspect badges, cards, tables, and responsive layouts | Components retain consistent Zen Green styling | Existing UI-style test conventions | Not Verified |
+Frontend coverage verifies:
 
-Frontend test suite results:
+- Backend metric rendering.
+- Status and priority counts.
+- Drill-down to the correct queue filters.
+- Selection of Tickets from recent and urgent lists.
+- Loading, empty, and safe error states.
 
-- 16 test files passed.
-- 61 tests passed.
-- No frontend test failures were reported.
+`StaffDashboard.test.tsx` passed all five tests.
 
-StaffDashboard.test.tsx is implemented and passed (5 tests).
+The Staff Dashboard E2E test passed and verified dashboard navigation, Ticket drill-down, responsive viewport overflow, button accessible names, keyboard focus reachability, and a performance-smoke threshold.
 
-## 9. Responsive and Accessibility Tests
+### 6.3 Dashboard Test Results
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| A11Y-01 | AC-13 | Test keyboard navigation through new forms and dashboard actions | Focus is visible and keyboard operation works | Relevant frontend test files | Not Verified |
-| A11Y-02 | AC-13 | Inspect labels and validation messages | Form fields and errors are accessible | Relevant frontend test files | Not Verified |
-| RESP-01 | AC-13 | Inspect desktop layout | No clipped or overlapping major content | UI-style and visual inspection | Not Verified |
-| RESP-02 | AC-13 | Inspect tablet layout | Dashboard cards and tables remain usable | UI-style and visual inspection | Not Verified |
-| RESP-03 | AC-13 | Inspect mobile layout | Forms and dashboard actions remain usable without page-level horizontal overflow | UI-style and visual inspection | Not Verified |
-| RESP-04 | AC-13 | Inspect status and priority indicators | Information is distinguishable without relying on color alone | UI-style and visual inspection | Not Verified |
+| Component / API | Test File | Result |
+|---|---|---|
+| Requester Dashboard API | `server/tests/lab-04/requester-dashboard.api.test.ts` | Passed — 5 tests |
+| Staff Dashboard API | `server/tests/lab-04/staff-dashboard.api.test.ts` | Passed — 5 tests |
+| Requester Dashboard component | `client/tests/lab-04/RequesterDashboard.test.tsx` | Passed — 3 tests |
+| Staff Dashboard component | `client/tests/lab-04/StaffDashboard.test.tsx` | Passed — 5 tests |
+| Requester Dashboard E2E | `e2e/lab-04/dashboards.spec.ts` | Passed |
+| Staff Dashboard E2E | `e2e/lab-04/staff-dashboard.spec.ts` | Passed |
 
-Responsive and accessibility checks have not yet been recorded as completed. Passing component tests alone does not prove these criteria.
+## 7. Database Migration, Seed, and Integrity Verification
+
+### 7.1 Migration Status
+
+The project uses Prisma 5.22.0.
+
+The following command was executed from the `server` directory:
+
+```powershell
+npx prisma migrate status --schema prisma/schema.prisma
+```
+
+Actual output:
+
+```text
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "toktickit",
+schema "public" at "localhost:5432"
+
+10 migrations found in prisma/migrations
+
+Database schema is up to date!
+```
+
+Result: **PASS**.
+
+All 10 migrations were reported as applied.
+
+### 7.2 Migration Safety Tests
+
+`server/tests/lab-04/migration-safety.test.ts` contains three static SQL tests.
+
+They verify the reviewed migration SQL for:
+
+- ActionTaken table creation and required foreign-key relationships.
+- The addition of the Open Ticket status.
+- Nullable idempotency fields and their unique index.
+- The absence of destructive SQL statements in the reviewed migrations.
+
+Result: **3 tests passed**.
+
+These are static SQL checks. They do not replace a historical before-and-after database comparison.
+
+### 7.3 Repeatable Seed Verification
+
+The Lab 4 seed script is:
+
+`server/prisma/seed-lab4.ts`
+
+The script was executed repeatedly. The recorded results remained stable at:
+
+- 87 Tickets.
+- 12 Actions Taken.
+
+No database reset was performed.
+
+These are the recorded counts during the repeatable seed checks, not the latest total database counts after subsequent E2E test execution.
+
+### 7.4 Read-only Database Integrity Verification
+
+The following command was executed from the `server` directory:
+
+```powershell
+npx tsx prisma/verify-lab4-integrity.ts
+```
+
+Latest actual output:
+
+| Entity / Check | Result |
+|---|---:|
+| Users | 13 |
+| Requesters | 8 |
+| Categories | 4 |
+| Systems | 7 |
+| Tickets | 105 |
+| Actions Taken | 12 |
+| Action relations valid | `true` |
+| Ticket relations valid | `true` |
+
+Output:
+
+```text
+Read-only database integrity verification passed.
+```
+
+Result: **PASS**.
+
+These counts represent the database at the time of the latest integrity check. E2E test activity may add records after earlier seed verification.
+
+### 7.5 Data Preservation Limitation
+
+The reviewed migration SQL contains additive changes and no destructive table reset statements.
+
+However, a complete historical database snapshot immediately before migration was not available. Therefore, a full before-and-after comparison of every existing record is not claimed.
+
+The migration status, static migration safety tests, repeatable seed checks, and current database integrity checks were completed successfully.
+
+## 8. Frontend Component Tests
+
+The complete frontend test suite passed:
+
+- 16 test files.
+- 61 tests.
+- 0 failures.
+
+Lab 4 frontend coverage:
+
+| Test File | Tests Passed |
+|---|---:|
+| `ActionsTaken.test.tsx` | 5 |
+| `RequesterDashboard.test.tsx` | 3 |
+| `StaffDashboard.test.tsx` | 5 |
+| `TicketWorkflow.test.tsx` | 10 |
+| **Lab 4 total** | **23** |
+
+The remaining frontend tests cover existing Labs 1–3 behavior.
+
+The frontend component tests cover loading, empty, success, validation, navigation, and safe error states in the tested components.
+
+## 9. Responsive and Accessibility Verification
+
+### 9.1 Automated Accessibility Scans
+
+The project uses `@axe-core/playwright`.
+
+The following pages were scanned using WCAG 2.0 and WCAG 2.1 A/AA tags:
+
+- Requester Dashboard.
+- Staff Dashboard.
+- Staff Ticket Detail.
+
+The Requester Dashboard scan is included in:
+
+`e2e/lab-04/dashboards.spec.ts`
+
+Staff Dashboard and Ticket Detail scans are included in:
+
+`e2e/lab-04/accessibility.spec.ts`
+
+The accessibility E2E test passed with no reported axe violations.
+
+### 9.2 Responsive Checks
+
+Viewport checks were executed at:
+
+| Viewport | Width |
+|---|---:|
+| Mobile | 375px |
+| Tablet | 768px |
+| Desktop | 1440px |
+
+The Staff Dashboard and Staff Ticket Detail responsive checks passed without page-level horizontal overflow at the tested viewports.
+
+### 9.3 Keyboard and Accessible Names
+
+The Staff Dashboard E2E test verifies:
+
+- Accessible names for visible buttons.
+- Keyboard focus reachability.
+- Dashboard navigation and Ticket drill-down.
+
+These are automated accessibility smoke checks. They do not constitute a complete manual WCAG audit or exhaustive keyboard review of every application form and page.
 
 ## 10. Performance-Smoke and Safe-Failure Tests
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| PERF-01 | AC-09 | Load dashboard metrics with representative seeded data | Dashboard returns correctly without an unexpected error | `server/tests/lab-04/staff-dashboard.api.test.ts` | API suite passed; performance not measured |
-| PERF-02 | AC-08 | Load Requester metrics with representative data | Dashboard returns promptly under the local test environment | `server/tests/lab-04/requester-dashboard.api.test.ts` | API suite passed; performance not measured |
-| SAFE-01 | AC-14 | Simulate recoverable API failure during form submission | Safe error is shown and entered data is retained | `client/tests/lab-04/ActionsTakenSection.test.tsx` | Not Separately Verified |
-| SAFE-02 | AC-14 | Submit invalid or stale workflow updates | A safe validation or conflict response is returned | `server/tests/lab-04/ticket-workflow.api.test.ts` | Test file suite passed; individual ID mapping pending |
-| SAFE-03 | AC-14 | Inspect API error responses | Secrets, password hashes, private notes, and unauthorized information are not exposed | Relevant server API tests | Not Fully Verified |
+### 10.1 Performance Smoke
 
-Performance-smoke results must record the environment, dataset size, observed behavior, and any unexpected bottlenecks.
+The Staff Dashboard E2E test measures navigation visibility time against a local smoke threshold of less than five seconds.
 
-No performance target is claimed as met because no dedicated performance measurement has been recorded.
+The latest full E2E run reported:
+
+```text
+Staff Dashboard visible after navigation in 31 ms
+```
+
+This is a local browser smoke measurement, not a production load test or a guarantee of production response time.
+
+No dedicated backend load test or large-scale performance benchmark was performed.
+
+### 10.2 Safe Failure
+
+Covered safe-failure behavior includes:
+
+- Unauthorized API access.
+- Invalid or incomplete Action Taken data.
+- Rejected Ticket workflow transitions.
+- Resolution-gate failures.
+- Dashboard API failures.
+- Safe frontend error messages.
+- Unexpected dashboard API errors not exposing internal database details.
+
+Relevant backend and frontend test suites passed.
+
+The verification does not claim a complete independent security audit of every API response or every possible sensitive-data exposure scenario.
 
 ## 11. End-to-End Tests
 
-### 11.1 Planned Lab 4 E2E Coverage
+### 11.1 Lab 4 E2E Scenarios
 
-| Test ID | Requirement / AC | Test | Expected Result | Test File | Status |
-|---|---|---|---|---|---|
-| E2E-01 | AC-01, AC-02, AC-03, AC-05 | Authorized staff creates and edits multiple Actions Taken on one Ticket | Correct actions and authenticated performer are displayed | Planned: `e2e/lab-04/actions-taken-flow.spec.ts` | Not Implemented |
-| E2E-02 | AC-04 | Requester opens an owned Ticket with existing Actions Taken | Requester can view actions but cannot modify them | Planned: `e2e/lab-04/actions-taken-flow.spec.ts` | Not Implemented |
-| E2E-03 | AC-06, AC-07 | Exercise permitted and rejected Ticket transitions | Workflow rules are enforced and status is refreshed | Planned: `e2e/lab-04/ticket-resolution.spec.ts` | Not Implemented |
-| E2E-04 | AC-08, AC-10 | Open Requester Dashboard and select an actionable metric | Only the Requester's data appears and drill-down works | `e2e/lab-04/dashboards.spec.ts` | Passed |
-| E2E-05 | AC-09, AC-10 | Open Staff Dashboard and select an actionable metric | Operational metrics and drill-down work correctly | `e2e/lab-04/dashboards.spec.ts` | Not Implemented |
-| E2E-06 | AC-12, AC-14 | Exercise representative earlier-lab workflows and recoverable failures | Regression behavior remains correct and failures are safe | Existing E2E tests | Partially Verified |
+| Test File | Scenario | Result |
+|---|---|---|
+| `e2e/lab-04/actions-taken-flow.spec.ts` | IT Staff records multiple Actions Taken on one Ticket | Passed |
+| `e2e/lab-04/ticket-resolution.spec.ts` | Ticket resolution requires a completed Action Taken | Passed |
+| `e2e/lab-04/dashboards.spec.ts` | Requester Dashboard metrics and My Tickets drill-down | Passed |
+| `e2e/lab-04/staff-dashboard.spec.ts` | Staff Dashboard drill-down, responsive layout, keyboard access, and performance smoke | Passed |
+| `e2e/lab-04/accessibility.spec.ts` | Accessibility and responsive audit of Staff Dashboard and Ticket Detail | Passed |
 
-### 11.2 Actual E2E Execution Results
+### 11.2 Regression E2E Scenarios
 
-The complete Playwright E2E suite was executed successfully.
-
-Command:
-
-`npm run test:e2e`
-
-Result:
-
-- 12 tests passed.
-- 0 tests failed.
-- Total execution time: 16.8 seconds.
-
-Passed E2E scenarios:
+The complete E2E suite also passed the existing regression scenarios:
 
 1. Authentication login and logout.
 2. Invalid login safe error.
 3. Lab 2 attachment upload, download, soft removal, and blocked removed-attachment download.
-4. Lab 2 Requester creates a Ticket and opens it from My Tickets.
-5. Lab 4 Requester Dashboard renders metrics and drills into My Tickets.
-6. IT Staff opens ticket queue and filters tickets.
-7. IT Staff opens a ticket and views ticket controls.
-8. Administrator opens user management and filters users.
-9. Administrator opens create user workflow.
+4. Lab 2 Requester Ticket creation and My Tickets navigation.
+5. Staff Ticket queue filtering.
+6. Staff Ticket detail and controls.
+7. Administrator user management and filtering.
+8. Administrator create-user workflow.
 
-The five affected regression E2E tests were also rerun separately and passed:
+### 11.3 Actual E2E Execution
 
-- Attachment Lifecycle: 1 passed.
-- Staff Ticket Flow: 2 passed.
-- User Administration: 2 passed.
+Command executed from the repository root:
 
-The Actions Taken and Ticket Resolution E2E flows are implemented and passed.
+```powershell
+npm run test:e2e
+```
+
+Latest actual result:
+
+```text
+Running 13 tests using 1 worker
+
+13 passed (20.0s)
+```
+
+Result: **13 passed, 0 failed**.
 
 ## 12. Acceptance-Criterion Traceability
 
-| Acceptance Criterion | Planned Test IDs | Verification Status |
+The following table maps Lab 4 acceptance criteria to the actual test files and verification evidence.
+
+| Acceptance Criterion | Test Evidence | Verification Result |
 |---|---|---|
-| AC-01 — Create Action Taken | API-01, API-05, API-09, E2E-01 | Backend suite passed; individual traceability pending; E2E not implemented |
-| AC-02 — Performer Identity | API-02, E2E-01 | Backend suite passed; individual traceability pending |
-| AC-03 — Follow-Up Validation | API-03, API-04, UI-02, E2E-01 | Backend and Actions Taken UI suites passed; E2E not implemented |
-| AC-04 — Action Visibility | API-06, API-07, API-08, UI-03, E2E-02 | Backend and Actions Taken UI suites passed; E2E not implemented |
-| AC-05 — Multiple Actions | API-10, DB-04, UI-01, E2E-01 | Relevant test suites passed; individual mapping pending |
-| AC-06 — Ticket Resolution | WF-03, WF-04, WF-05, WF-06, E2E-03 | Backend workflow suite passed; E2E not implemented |
-| AC-07 — Status Authorization | WF-01, WF-02, WF-07, WF-08, WF-09, WF-10, E2E-03 | Backend workflow suite passed; frontend workflow and E2E coverage incomplete |
-| AC-08 — Requester Dashboard | DASH-01, DASH-02, DASH-03, DASH-04, UI-05, E2E-04 | Backend, frontend and Requester Dashboard E2E suites passed |
-| AC-09 — Staff Dashboard | DASH-05, DASH-06, DASH-07, DASH-08, DASH-09, PERF-01, UI-06, E2E-05 | Backend suite passed; frontend component and Staff Dashboard E2E passed |
-| AC-10 — Drill-Down | DASH-10, UI-07, E2E-04, E2E-05 | Requester Dashboard drill-down E2E passed; Staff Dashboard drill-down passed |
-| AC-11 — Migration Preservation | DB-01, DB-02, DB-03, DB-04 | Not Fully Verified |
-| AC-12 — Regression | REG-01, REG-02, REG-03, REG-04, E2E-06 | E2E regression scenarios passed; complete Lab 1–3 traceability not verified |
-| AC-13 — Responsive and Accessible UI | UI-09, UI-10, A11Y-01, A11Y-02, RESP-01, RESP-02, RESP-03, RESP-04 | Not Verified |
-| AC-14 — Final Verification | SAFE-01, SAFE-02, SAFE-03, PERF-01, PERF-02, E2E-06 | Partially Verified |
+| AC-01 — Create Actions Taken | Actions Taken API, component, and E2E tests | Passed |
+| AC-02 — Authenticated Performer Identity | Actions Taken API and E2E tests | Passed |
+| AC-03 — Follow-up Validation | Actions Taken API and frontend component tests | Passed |
+| AC-04 — Action Visibility and Authorization | Actions Taken API ownership/role tests and Requester UI tests | Passed for covered cases |
+| AC-05 — Multiple Actions per Ticket | Actions Taken API, frontend, and E2E tests | Passed |
+| AC-06 — Ticket Resolution Requirements | Ticket workflow API and Ticket Resolution E2E tests | Passed |
+| AC-07 — Ticket Status Workflow | Workflow API tests and TicketWorkflow component tests | Passed |
+| AC-08 — Requester Dashboard | Requester Dashboard API, component, and E2E tests | Passed |
+| AC-09 — Staff Dashboard | Staff Dashboard API, component, and E2E tests | Passed |
+| AC-10 — Dashboard Drill-down | Requester and Staff Dashboard component/E2E tests | Passed |
+| AC-11 — Migration, Seed, and Data Integrity | Migration status, migration safety tests, repeatable seed checks, and read-only integrity verification | Verified with historical snapshot limitation |
+| AC-12 — Labs 1–3 Regression | Complete backend, frontend, and configured E2E suites | Passed for configured regression coverage |
+| AC-13 — Responsive and Accessible UI | Axe scans, viewport overflow checks, accessible-name and keyboard-focus smoke tests | Automated checks passed; full manual audit not claimed |
+| AC-14 — Safe Failure and Final Verification | Validation, authorization, workflow conflict, safe UI error tests, and full verification runs | Passed for covered cases |
+
+The traceability above maps each criterion to its implemented test files and verification evidence. It does not claim that every possible edge case or every UI element has been independently audited.
 
 ## 13. Final Test Execution Record
 
-### 13.1 Actual Test Suite Results
+### 13.1 Actual Full-suite Results
 
-| Test Group | Test Files / Tests | Passed | Failed | Result |
-|---|---:|---:|---:|---|
-| Backend | 19 files / 94 tests | 94 | 0 | Passed |
-| Frontend | 16 files / 61 tests | 61 | 0 | Passed |
-| Lab 4 Backend (included above) | 4 files / 37 tests | 37 | 0 | Passed |
-| Lab 4 Frontend (included above) | 4 files / 23 tests | 23 | 0 | Passed |
-| Playwright E2E | 11 tests | 11 | 0 | Passed |
-| TypeScript E2E Check | `npx tsc --noEmit` | No errors | 0 | Passed |
-| Client Production Build | `npm run build` | Build succeeded | 0 | Passed |
-| Git Whitespace Check | `git diff --check` | No errors | 0 | Passed |
+| Test Group | Test Files | Passed | Failed |
+|---|---:|---:|---:|
+| Backend | 20 | 97 | 0 |
+| Frontend | 16 | 61 | 0 |
+| Playwright E2E | Configured suite | 13 | 0 |
+| **Total** | — | **171** | **0** |
 
-The Lab 4 counts are included within the overall backend and frontend totals.
+The total of 171 is calculated as:
 
-Actual total: 167 tests passed (94 backend + 61 frontend + 12 E2E).
+- Backend: 97.
+- Frontend: 61.
+- E2E: 13.
 
-### 13.2 Outstanding Verification
+Lab 4 subset counts are included in the overall backend and frontend totals; they must not be added again.
 
-| Verification Item | Status |
-|---|---|
-| Staff Dashboard E2E drill-down | `e2e/lab-04/staff-dashboard.spec.ts` | Passed |
-| Responsive desktop/tablet/mobile verification | Not recorded |
-| Keyboard navigation and focus visibility | Not recorded |
-| Complete accessibility review | Not recorded |
-| Dedicated performance-smoke measurement | Not recorded |
-| Full historical data-preservation comparison | Not recorded |
-| Complete security-response review | Not recorded |
-| Final integrated-branch verification | Pending |
+### 13.2 Lab 4 Subset Results
+
+| Test Group | Files | Passed | Failed |
+|---|---:|---:|---:|
+| Lab 4 Backend API and migration safety | 5 | 40 | 0 |
+| Lab 4 Frontend components | 4 | 23 | 0 |
+| Lab 4 E2E scenarios | 5 | 5 | 0 |
+
+The Lab 4 backend total consists of:
+
+- Actions Taken API: 18 tests.
+- Ticket workflow API: 9 tests.
+- Requester Dashboard API: 5 tests.
+- Staff Dashboard API: 5 tests.
+- Migration safety: 3 tests.
+
+### 13.3 Build and TypeScript Results
+
+| Check | Command | Actual Result |
+|---|---|---|
+| Root TypeScript check | `npx tsc --noEmit` | Passed — no errors |
+| Client production build | `npm run build` from `client` | Passed |
+| Server TypeScript build | `npm run build` from `server` | Passed |
+
+### 13.4 Git Whitespace Check
+
+Command:
+
+```powershell
+git diff --check
+```
+
+Result: No whitespace errors were reported.
+
+Git printed a line-ending warning for `e2e/lab-04/staff-dashboard.spec.ts` indicating that LF may be replaced by CRLF on a future Git operation. This was a line-ending warning, not a whitespace validation failure.
+
 ## 14. Test Commands and Reproduction
 
-Run the backend tests:
+Run backend tests from the repository root:
 
 ```powershell
 cd server
 npm test
 ```
 
-Run the frontend tests and production build:
+Run the server build:
+
+```powershell
+npm run build
+```
+
+Check Prisma migrations using the project's installed Prisma 5.22.0 version:
+
+```powershell
+npx prisma migrate status --schema prisma/schema.prisma
+```
+
+Run read-only database integrity verification:
+
+```powershell
+npx tsx prisma/verify-lab4-integrity.ts
+```
+
+Run frontend tests and production build:
 
 ```powershell
 cd ..\client
@@ -350,13 +572,13 @@ cd ..
 npm run test:e2e
 ```
 
-Run the TypeScript check from the repository root:
+Run the root TypeScript check:
 
 ```powershell
 npx tsc --noEmit
 ```
 
-Check Git whitespace errors:
+Check Git whitespace:
 
 ```powershell
 git diff --check
@@ -369,173 +591,51 @@ The E2E suite uses the configured Playwright web servers and Chromium project in
 - [x] Backend test suite executed successfully.
 - [x] Frontend test suite executed successfully.
 - [x] Client production build succeeded.
-- [x] Existing configured Playwright E2E suite passed.
-- [x] TypeScript E2E check completed without errors.
-- [x] Git whitespace check completed without errors.
+- [x] Server TypeScript build succeeded.
+- [x] Complete configured Playwright E2E suite passed.
+- [x] Root TypeScript check completed without errors.
 - [x] Actual test file paths recorded.
-- [x] Known missing test coverage documented.
-- [ ] All planned tests implemented or their approved alternatives documented.
-- [ ] Every acceptance criterion has verified test-level traceability.
-- [ ] Actions Taken E2E tests implemented and passed.
-- [ ] Ticket Resolution E2E tests implemented and passed.
-- [ ] Staff Dashboard and Ticket Workflow frontend tests implemented and passed.
-- [ ] Migration preservation and repeatable seed behavior verified.
-- [ ] Responsive and accessibility checks completed.
-- [ ] Performance-smoke behavior measured and documented.
-- [ ] Full Labs 1–3 regression coverage verified.
-- [ ] Final verification performed on the integrated branch according to the project workflow.
+- [x] Actions Taken API and component tests passed.
+- [x] Ticket Workflow backend and frontend tests passed.
+- [x] Requester Dashboard API, component, and E2E tests passed.
+- [x] Staff Dashboard API, component, and E2E tests passed.
+- [x] Actions Taken E2E flow passed.
+- [x] Ticket Resolution E2E flow passed.
+- [x] Staff Dashboard E2E drill-down passed.
+- [x] Migration safety static tests passed.
+- [x] Prisma reports all 10 migrations applied.
+- [x] Repeatable Lab 4 seed checks completed.
+- [x] Read-only database integrity verification passed.
+- [x] Automated accessibility scans passed on the tested pages.
+- [x] Responsive viewport checks passed on the tested pages.
+- [x] Keyboard-focus and performance-smoke checks passed for the tested Staff Dashboard flow.
+- [x] Labs 1–3 configured regression suites passed.
+- [x] Known limitations documented.
+- [ ] Complete historical before-and-after data-preservation comparison.
+- [ ] Complete manual accessibility audit of all pages and forms.
+- [ ] Dedicated production-scale performance/load testing.
+- [ ] Final integrated-branch review and verification.
 
-## 16. Current Verification Conclusion
+## 16. Final Verification Conclusion
 
-The latest full verification confirms:
+The latest verification confirms that:
 
-- 94 backend tests passed.
+- 97 backend tests passed.
 - 61 frontend tests passed.
-- 11 Playwright E2E tests passed.
+- 13 Playwright E2E tests passed.
+- 171 automated tests passed in total.
 - Client production build succeeded.
-- TypeScript check passed.
-- Git whitespace check passed.
-- Prisma reports all 10 migrations applied.
-- Lab 4 seed fixtures were run repeatedly without increasing the final totals of 87 Tickets and 12 Actions Taken.
+- Server TypeScript build succeeded.
+- Root TypeScript check passed.
+- All 10 Prisma migrations are applied.
+- Migration safety static tests passed.
+- Repeatable Lab 4 seed checks completed successfully.
+- Read-only database integrity verification passed.
+- Requester and Staff Dashboard tests passed.
+- Actions Taken and Ticket Resolution E2E flows passed.
+- Automated accessibility and responsive smoke checks passed for the tested pages.
+- Configured Labs 1–3 regression tests passed.
 
-Issue #65 is not yet fully complete. Staff Dashboard E2E drill-down, responsive and accessibility checks, dedicated performance measurement, full historical data-preservation comparison, security-response review, and final integrated-branch verification remain outstanding.
+The historical pre-migration data snapshot was not available, so a complete before-and-after data comparison is not claimed. The automated accessibility checks also do not replace a full manual accessibility audit.
 
-Do not mark Issue #65 fully complete until these items are verified or explicitly approved as out of scope.
-## 17. Latest Verification Addendum — 1 November 2026
-
-This section supersedes outdated execution counts and test-file status statements in earlier sections.
-
-### Actual full-suite results
-
-| Group | Files / Tests | Result |
-|---|---:|---|
-| Backend | 19 files / 94 tests | Passed |
-| Frontend | 16 files / 61 tests | Passed |
-| Lab 4 Backend | 4 files / 37 tests | Passed |
-| Lab 4 Frontend | 4 files / 23 tests | Passed |
-| Playwright E2E | 11 tests | Passed |
-| Production build | — | Passed |
-| TypeScript check | — | Passed |
-| `git diff --check` | — | Passed |
-
-Total: 167 tests passed. Lab 4 counts are included in the overall backend/frontend totals.
-
-### Current Lab 4 test files
-
-Backend:
-- `server/tests/lab-04/actions-taken.api.test.ts`
-- `server/tests/lab-04/ticket-workflow.api.test.ts`
-- `server/tests/lab-04/requester-dashboard.api.test.ts`
-- `server/tests/lab-04/staff-dashboard.api.test.ts`
-
-Frontend:
-- `client/tests/lab-04/ActionsTakenSection.test.tsx`
-- `client/tests/lab-04/RequesterDashboard.test.tsx`
-- `client/tests/lab-04/StaffDashboard.test.tsx`
-- `client/tests/lab-04/TicketWorkflow.test.tsx`
-
-E2E:
-- `e2e/lab-04/actions-taken-flow.spec.ts`
-- `e2e/lab-04/ticket-resolution.spec.ts`
-- `e2e/lab-04/dashboards.spec.ts`
-
-### Migration and seed
-
-- Prisma reports 10 migrations and `Database schema is up to date!`.
-- Existing baseline before fixture seeding: 13 Users, 8 Requesters, 4 Categories, 7 Related Systems, 79 Tickets, 7 Actions Taken.
-- `server/prisma/seed-lab4.ts` created 8 fixture Tickets and 5 Actions Taken.
-- Repeated seed runs consistently returned 87 Tickets and 12 Actions Taken.
-- No database reset was performed.
-- Historical before-and-after comparison of every table remains outstanding.
-
-### Remaining work
-
-- Staff Dashboard E2E drill-down.
-- Responsive desktop, tablet, and mobile verification.
-- Accessibility and keyboard-navigation verification.
-- Dedicated performance-smoke measurement.
-- Full historical data-preservation comparison.
-- Final integrated-branch verification.
-
-Issue #65 is not yet fully complete until remaining requirements are verified or explicitly approved as out of scope.
-
-## Final Issue #8 Verification — 1 November 2026
-
-### Actual final test results
-
-| Test group | Files | Passed | Failed |
-|---|---:|---:|---:|
-| Backend | 19 | 94 | 0 |
-| Lab 4 backend subset | 4 | 37 | 0 |
-| Frontend | 16 | 61 | 0 |
-| Lab 4 frontend subset | 4 | 23 | 0 |
-| Playwright E2E | 12 | 12 | 0 |
-
-Lab 4 subset counts are included in the overall backend and frontend totals.
-
-**Total: 167 tests passed.**
-
-Additional checks:
-- Production build: Passed.
-- TypeScript check: Passed.
-- Prisma migration status: 10 migrations up to date.
-- Git diff whitespace check: Passed.
-- Lab 4 seed repeated successfully: 87 Tickets and 12 Actions Taken remained unchanged.
-- Staff Dashboard E2E navigation measured 98 ms in the targeted run.
-
-### Final Lab 4 E2E files
-
-- `e2e/lab-04/actions-taken-flow.spec.ts`
-- `e2e/lab-04/ticket-resolution.spec.ts`
-- `e2e/lab-04/dashboards.spec.ts`
-- `e2e/lab-04/staff-dashboard.spec.ts`
-
-The Staff Dashboard E2E verifies Ticket drill-down, 375px/768px/1440px viewport overflow, button accessible names, keyboard focus reachability, and a local navigation performance smoke threshold.
-
-### Acceptance-criterion mapping
-
-| Criterion | Test evidence | Result |
-|---|---|---|
-| AC-01 Create Actions Taken | Actions Taken API, component, E2E | Passed |
-| AC-02 Performer identity | Actions Taken API and E2E | Passed |
-| AC-03 Follow-up validation | API and component validation tests | Passed |
-| AC-04 Visibility and authorization | API ownership/role tests and Requester read-only UI | Passed |
-| AC-05 Multiple actions | API retrieval and Actions Taken E2E | Passed |
-| AC-06 Resolution gate | Workflow API and Ticket Resolution E2E | Passed |
-| AC-07 Status workflow | Workflow API transition matrix and TicketWorkflow component | Passed |
-| AC-08 Requester Dashboard | API, component and E2E | Passed |
-| AC-09 Staff Dashboard | API, component and Staff Dashboard E2E | Passed |
-| AC-10 Dashboard drill-down | Requester and Staff Dashboard component/E2E tests | Passed |
-| AC-11 Migration and seed | Migration status/SQL inspection, baseline counts and repeatable seed | Verified; historical pre-migration snapshot unavailable |
-| AC-12 Labs 1–3 regression | Full backend, frontend and configured E2E suites | Passed |
-| AC-13 Responsive and accessibility | Viewport overflow, button accessible-name and keyboard-focus smoke checks | Automated smoke passed; full accessibility audit not claimed |
-| AC-14 Safe failure and final verification | Validation, authorization, conflict, safe UI errors and complete test runs | Passed for covered cases |
-
-### Required Lab 4 test files
-
-Backend:
-- `server/tests/lab-04/actions-taken.api.test.ts`
-- `server/tests/lab-04/ticket-workflow.api.test.ts`
-- `server/tests/lab-04/requester-dashboard.api.test.ts`
-- `server/tests/lab-04/staff-dashboard.api.test.ts`
-
-Frontend:
-- `client/tests/lab-04/StaffDashboard.test.tsx`
-- `client/tests/lab-04/RequesterDashboard.test.tsx`
-- `client/tests/lab-04/ActionsTaken.test.tsx`
-- `client/tests/lab-04/TicketWorkflow.test.tsx`
-
-E2E:
-- `e2e/lab-04/actions-taken-flow.spec.ts`
-- `e2e/lab-04/ticket-resolution.spec.ts`
-- `e2e/lab-04/dashboards.spec.ts`
-
-### Data preservation limitation
-
-The reviewed migration SQL contains additive changes and no destructive table reset. Existing data counts were recorded before fixture seeding, and no database reset was performed. A complete historical before-and-after snapshot from immediately before migration was not available, so that specific comparison is not claimed.
-
-### Final conclusion
-
-All required Lab 4 test files are present. Backend, frontend, E2E, production build, TypeScript and migration checks passed. Labs 1–3 regression suites also passed.
-
-The implementation is ready for Issue #8 review. The remaining data-preservation limitation and the scope of automated accessibility smoke checks are documented transparently.
+**Final status:** Lab 4 Issue #8 has passed the recorded automated verification. The remaining limitations are explicitly documented for review. Final integrated-branch review and Git workflow completion are separate steps.

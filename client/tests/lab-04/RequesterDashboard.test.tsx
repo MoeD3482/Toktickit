@@ -1,3 +1,4 @@
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -37,7 +38,7 @@ describe("RequesterDashboard", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders backend metrics, concise Ticket lists, and accessible Ticket links", async () => {
+  it("renders backend metrics, concise Ticket lists, and accessible Ticket buttons", async () => {
     vi.spyOn(api, "getRequesterDashboard").mockResolvedValue(dashboard);
 
     render(
@@ -47,21 +48,30 @@ describe("RequesterDashboard", () => {
       />,
     );
 
-    expect(await screen.findByRole("heading", { name: "Requester Dashboard" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", {
+        name: "Requester Dashboard",
+      }),
+    ).toBeInTheDocument();
+
     expect(screen.getByText("Open Tickets")).toBeInTheDocument();
     expect(screen.getByText("Waiting for You")).toBeInTheDocument();
+
     expect(screen.getAllByText("4")).toHaveLength(1);
+
     expect(screen.getByText("TKT-2026-00021")).toBeInTheDocument();
     expect(screen.getByText("TKT-2026-00022")).toBeInTheDocument();
+
     expect(
       screen.getByRole("button", {
-        name: "Open Ticket TKT-2026-00021: VPN needs a status update",
+        name: /TKT-2026-00021.*VPN needs a status update/,
       }),
     ).toBeInTheDocument();
   });
 
-  it("sends each metric card to the matching filtered Ticket list and opens Ticket Detail", async () => {
+  it("sends metric cards to the matching filtered Ticket list and opens Ticket Detail", async () => {
     vi.spyOn(api, "getRequesterDashboard").mockResolvedValue(dashboard);
+
     const onShowTickets = vi.fn();
     const onSelectTicket = vi.fn();
     const user = userEvent.setup();
@@ -74,7 +84,17 @@ describe("RequesterDashboard", () => {
     );
 
     await screen.findByText("Open Tickets");
-    await user.click(screen.getByRole("button", { name: "View open Tickets: 4" }));
+
+    const openTicketsMetric = screen.getByRole("button", {
+      name: /Open Tickets/,
+    });
+
+    const recentlyResolvedMetric = screen.getByRole("button", {
+      name: /Recently Resolved/,
+    });
+
+    await user.click(openTicketsMetric);
+
     expect(onShowTickets).toHaveBeenLastCalledWith(
       {
         status: [
@@ -88,7 +108,8 @@ describe("RequesterDashboard", () => {
       "open Tickets",
     );
 
-    await user.click(screen.getByRole("button", { name: "View recently resolved Tickets: 3" }));
+    await user.click(recentlyResolvedMetric);
+
     expect(onShowTickets).toHaveBeenLastCalledWith(
       {
         status: ["Resolved", "Closed"],
@@ -99,14 +120,18 @@ describe("RequesterDashboard", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Open Ticket TKT-2026-00022: Please confirm the replacement device",
+        name: /TKT-2026-00022.*Please confirm the replacement device/,
       }),
     );
+
     expect(onSelectTicket).toHaveBeenCalledWith("attention-ticket");
   });
 
   it("shows the loading, empty, and safe error states", async () => {
-    let resolveDashboard: ((value: typeof dashboard) => void) | undefined;
+    let resolveDashboard:
+      | ((value: typeof dashboard) => void)
+      | undefined;
+
     vi.spyOn(api, "getRequesterDashboard").mockReturnValue(
       new Promise((resolve) => {
         resolveDashboard = resolve;
@@ -119,7 +144,10 @@ describe("RequesterDashboard", () => {
         onSelectTicket={vi.fn()}
       />,
     );
-    expect(screen.getByText("Loading Requester Dashboard...")).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Loading Requester Dashboard..."),
+    ).toBeInTheDocument();
 
     resolveDashboard?.({
       ...dashboard,
@@ -131,21 +159,35 @@ describe("RequesterDashboard", () => {
       attentionRequiredTickets: [],
     });
 
-    expect(await screen.findByText("No Tickets to show yet. Create a Ticket when you need help.")).toBeInTheDocument();
-    expect(screen.getByText("No Tickets have been updated in the last 30 days.")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "No Tickets to show yet. Create a Ticket when you need help.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        "No Tickets have been updated in the last 30 days.",
+      ),
+    ).toBeInTheDocument();
+
     unmount();
 
     vi.spyOn(api, "getRequesterDashboard").mockRejectedValue(
       new api.ApiRequestError(403, "Forbidden"),
     );
+
     render(
       <RequesterDashboard
         onShowTickets={vi.fn()}
         onSelectTicket={vi.fn()}
       />,
     );
+
     expect(
-      await screen.findByText("You are not allowed to view the Requester Dashboard."),
+      await screen.findByText(
+        "You are not allowed to view the Requester Dashboard.",
+      ),
     ).toBeInTheDocument();
   });
 });

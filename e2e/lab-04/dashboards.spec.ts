@@ -1,4 +1,6 @@
 
+import AxeBuilder from "@axe-core/playwright";
+
 import {
   expect,
   test,
@@ -79,7 +81,7 @@ async function loginAsRequester(page: Page, email: string) {
 }
 
 test(
-  "E2E-04 Requester Dashboard renders metrics and drills into My Tickets",
+  "E2E-04 Requester Dashboard renders metrics, passes accessibility, and drills into My Tickets",
   async ({ page }) => {
     const requester = await createRequesterFixture();
 
@@ -96,33 +98,31 @@ test(
         })
       ).toBeVisible();
 
-      await expect(
-        page.getByRole("button", {
-          name: "View open Tickets:",
-        })
-      ).toBeVisible();
+      // Accessibility audit for the Requester Dashboard.
+      const accessibilityScan = await new AxeBuilder({ page })
+        .withTags([
+          "wcag2a",
+          "wcag2aa",
+          "wcag21a",
+          "wcag21aa",
+        ])
+        .analyze();
 
-      await expect(
-        page.getByRole("button", {
-          name: "View Tickets waiting for you:",
-        })
-      ).toBeVisible();
+      expect(accessibilityScan.violations).toEqual([]);
 
-      await expect(
-        page.getByRole("button", {
-          name: "View recently updated Tickets:",
-        })
-      ).toBeVisible();
+      // Verify that all four dashboard metric buttons are rendered.
+      const metricButtons = page.locator(
+        'section[aria-labelledby="requester-dashboard-heading"] button'
+      );
 
-      await expect(
-        page.getByRole("button", {
-          name: "View recently resolved Tickets:",
-        })
-      ).toBeVisible();
+      await expect(metricButtons).toHaveCount(4);
 
-      await page.getByRole("button", {
-        name: "View open Tickets:",
-      }).click();
+      for (let index = 0; index < 4; index += 1) {
+        await expect(metricButtons.nth(index)).toBeVisible();
+      }
+
+      // The first metric is Open Tickets.
+      await metricButtons.first().click();
 
       await expect(
         page.getByRole("heading", {

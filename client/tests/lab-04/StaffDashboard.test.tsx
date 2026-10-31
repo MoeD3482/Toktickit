@@ -67,11 +67,15 @@ describe("StaffDashboard", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", { name: "View Unassigned Tickets: 3" }),
+      screen.getByRole("button", {
+        name: /Unassigned Tickets\s+3/,
+      }),
     ).toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", { name: "View My Tickets: 2" }),
+      screen.getByRole("button", {
+        name: /My Tickets\s+2/,
+      }),
     ).toBeInTheDocument();
 
     expect(screen.getByText("Tickets by Status")).toBeInTheDocument();
@@ -106,7 +110,9 @@ describe("StaffDashboard", () => {
     await screen.findByRole("heading", { name: "Staff Dashboard" });
 
     await user.click(
-      screen.getByRole("button", { name: "View Unassigned Tickets: 3" }),
+      screen.getByRole("button", {
+        name: /Unassigned Tickets\s+3/,
+      }),
     );
 
     expect(onShowQueue).toHaveBeenLastCalledWith(
@@ -115,7 +121,9 @@ describe("StaffDashboard", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "View My Tickets: 2" }),
+      screen.getByRole("button", {
+        name: /My Tickets\s+2/,
+      }),
     );
 
     expect(onShowQueue).toHaveBeenLastCalledWith(
@@ -160,7 +168,7 @@ describe("StaffDashboard", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Open Ticket TKT-2026-00031: VPN connection needs investigation",
+        name: /TKT-2026-00031.*VPN connection needs investigation/,
       }),
     );
 
@@ -168,7 +176,7 @@ describe("StaffDashboard", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Open Ticket TKT-2026-00032: Production network is unavailable",
+        name: /TKT-2026-00032.*Production network is unavailable/,
       }),
     );
 
@@ -207,7 +215,9 @@ describe("StaffDashboard", () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.getByRole("button", { name: "View Unassigned Tickets: 0" }),
+      screen.getByRole("button", {
+        name: /Unassigned Tickets\s+0/,
+      }),
     ).toBeInTheDocument();
 
     unmount();
@@ -224,9 +234,7 @@ describe("StaffDashboard", () => {
       />,
     );
 
-    expect(
-      await screen.findByRole("alert"),
-    ).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "You are not allowed to view the Staff Dashboard.",
     );
   });
@@ -244,9 +252,7 @@ describe("StaffDashboard", () => {
       />,
     );
 
-    expect(
-      await screen.findByRole("alert"),
-    ).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Unable to load the Staff Dashboard. Please try again.",
     );
 
