@@ -13,7 +13,7 @@ The verification scope includes:
 - Database migrations, migration safety, and repeatable seed fixtures.
 - Frontend component behavior and safe error handling.
 - Responsive layout and automated accessibility checks.
-- Playwright end-to-end workflows.
+- Playwright end-to-end workflows and screenshot capture.
 - Regression testing for Labs 1–3.
 - TypeScript checks and production builds.
 
@@ -33,8 +33,9 @@ The project uses the following verification methods:
 8. Playwright end-to-end tests.
 9. Accessibility scans using axe-core.
 10. Responsive viewport, keyboard-focus, and performance-smoke checks.
-11. Labs 1–3 regression tests.
-12. TypeScript and production build checks.
+11. Screenshot capture at desktop, tablet, and mobile viewports.
+12. Labs 1–3 regression tests.
+13. TypeScript and production build checks.
 
 ### 2.1 Verification Environment
 
@@ -87,6 +88,9 @@ Lab 4 E2E test files:
 - `e2e/lab-04/dashboards.spec.ts`
 - `e2e/lab-04/staff-dashboard.spec.ts`
 - `e2e/lab-04/accessibility.spec.ts`
+- `e2e/lab-04/screenshots.spec.ts`
+
+The screenshot test captures the major application screens at desktop, tablet, and mobile viewport sizes.
 
 ### 3.4 Regression Test Files
 
@@ -112,7 +116,7 @@ The `verify-lab4-integrity.ts` script performs read-only database checks. It doe
 
 The Actions Taken API test suite verifies creation, authenticated performer identity, validation, authorization, ownership, multiple actions, retrieval, and safe failure behavior.
 
-The four functional Lab 4 backend API test files contain 37 tests.
+The four functional Lab 4 backend API test files contain 37 tests. Including the three migration safety tests, the five Lab 4 backend test files contain 40 tests.
 
 | Test Area | Test File | Actual Result |
 |---|---|---|
@@ -120,6 +124,8 @@ The four functional Lab 4 backend API test files contain 37 tests.
 | Requester Dashboard API | `requester-dashboard.api.test.ts` | Passed — 5 tests |
 | Staff Dashboard API | `staff-dashboard.api.test.ts` | Passed — 5 tests |
 | Ticket workflow and resolution gate | `ticket-workflow.api.test.ts` | Passed — 9 tests |
+| Migration safety | `migration-safety.test.ts` | Passed — 3 tests |
+| **Lab 4 backend total** | **5 files** | **40 tests passed** |
 
 The Actions Taken API coverage includes:
 
@@ -359,11 +365,11 @@ The accessibility E2E test passed with no reported axe violations.
 
 Viewport checks were executed at:
 
-| Viewport | Width |
-|---|---:|
-| Mobile | 375px |
-| Tablet | 768px |
-| Desktop | 1440px |
+| Viewport | Width | Height |
+|---|---:|---:|
+| Mobile | 375px | 812px |
+| Tablet | 768px | 1024px |
+| Desktop | 1440px | 900px |
 
 The Staff Dashboard and Staff Ticket Detail responsive checks passed without page-level horizontal overflow at the tested viewports.
 
@@ -377,16 +383,56 @@ The Staff Dashboard E2E test verifies:
 
 These are automated accessibility smoke checks. They do not constitute a complete manual WCAG audit or exhaustive keyboard review of every application form and page.
 
+### 9.4 Screenshot Capture
+
+The screenshot automation is implemented in:
+
+`e2e/lab-04/screenshots.spec.ts`
+
+The test captures 10 screen groups at three viewport sizes:
+
+- Desktop: 1440 × 900.
+- Tablet: 768 × 1024.
+- Mobile: 375 × 812.
+
+The screenshot test passed:
+
+```text
+1 passed (10.7s)
+```
+
+A total of 33 screenshots were generated.
+
+Screenshot directories:
+
+```text
+artifacts/lab-04/screenshots/
+├── actions-taken/
+├── admin-user-management/
+├── create-ticket/
+├── login/
+├── my-tickets/
+├── requester-dashboard/
+├── requester-ticket-detail/
+├── staff-dashboard/
+├── staff-queue/
+└── staff-ticket-detail/
+```
+
+The Actions Taken directory includes both Requester and Staff views.
+
+These screenshots provide visual evidence for the captured screens and viewport sizes. They do not independently prove that every possible screen state or interaction has been manually audited.
+
 ## 10. Performance-Smoke and Safe-Failure Tests
 
 ### 10.1 Performance Smoke
 
 The Staff Dashboard E2E test measures navigation visibility time against a local smoke threshold of less than five seconds.
 
-The latest full E2E run reported:
+The latest Issue #9 verification reported:
 
 ```text
-Staff Dashboard visible after navigation in 31 ms
+Staff Dashboard visible after navigation in 28 ms
 ```
 
 This is a local browser smoke measurement, not a production load test or a guarantee of production response time.
@@ -420,6 +466,9 @@ The verification does not claim a complete independent security audit of every A
 | `e2e/lab-04/dashboards.spec.ts` | Requester Dashboard metrics and My Tickets drill-down | Passed |
 | `e2e/lab-04/staff-dashboard.spec.ts` | Staff Dashboard drill-down, responsive layout, keyboard access, and performance smoke | Passed |
 | `e2e/lab-04/accessibility.spec.ts` | Accessibility and responsive audit of Staff Dashboard and Ticket Detail | Passed |
+| `e2e/lab-04/screenshots.spec.ts` | Desktop, tablet, and mobile screenshot capture | Passed |
+
+The six Lab 4 E2E files were included in the configured Playwright verification.
 
 ### 11.2 Regression E2E Scenarios
 
@@ -442,15 +491,15 @@ Command executed from the repository root:
 npm run test:e2e
 ```
 
-Latest actual result:
+Latest actual Issue #9 result:
 
 ```text
-Running 13 tests using 1 worker
+Running 14 tests using 1 worker
 
-13 passed (20.0s)
+14 passed (26.7s)
 ```
 
-Result: **13 passed, 0 failed**.
+Result: **14 passed, 0 failed**.
 
 ## 12. Acceptance-Criterion Traceability
 
@@ -470,7 +519,7 @@ The following table maps Lab 4 acceptance criteria to the actual test files and 
 | AC-10 — Dashboard Drill-down | Requester and Staff Dashboard component/E2E tests | Passed |
 | AC-11 — Migration, Seed, and Data Integrity | Migration status, migration safety tests, repeatable seed checks, and read-only integrity verification | Verified with historical snapshot limitation |
 | AC-12 — Labs 1–3 Regression | Complete backend, frontend, and configured E2E suites | Passed for configured regression coverage |
-| AC-13 — Responsive and Accessible UI | Axe scans, viewport overflow checks, accessible-name and keyboard-focus smoke tests | Automated checks passed; full manual audit not claimed |
+| AC-13 — Responsive and Accessible UI | Axe scans, viewport overflow checks, accessible-name and keyboard-focus smoke tests, and screenshot capture | Automated checks passed; full manual audit not claimed |
 | AC-14 — Safe Failure and Final Verification | Validation, authorization, workflow conflict, safe UI error tests, and full verification runs | Passed for covered cases |
 
 The traceability above maps each criterion to its implemented test files and verification evidence. It does not claim that every possible edge case or every UI element has been independently audited.
@@ -483,14 +532,14 @@ The traceability above maps each criterion to its implemented test files and ver
 |---|---:|---:|---:|
 | Backend | 20 | 97 | 0 |
 | Frontend | 16 | 61 | 0 |
-| Playwright E2E | Configured suite | 13 | 0 |
-| **Total** | — | **171** | **0** |
+| Playwright E2E | Configured suite | 14 | 0 |
+| **Total** | — | **172** | **0** |
 
-The total of 171 is calculated as:
+The total of 172 is calculated as:
 
 - Backend: 97.
 - Frontend: 61.
-- E2E: 13.
+- E2E: 14.
 
 Lab 4 subset counts are included in the overall backend and frontend totals; they must not be added again.
 
@@ -500,7 +549,7 @@ Lab 4 subset counts are included in the overall backend and frontend totals; the
 |---|---:|---:|---:|
 | Lab 4 Backend API and migration safety | 5 | 40 | 0 |
 | Lab 4 Frontend components | 4 | 23 | 0 |
-| Lab 4 E2E scenarios | 5 | 5 | 0 |
+| Lab 4 E2E | 6 files included in the full suite | See full E2E result | 0 failures in full suite |
 
 The Lab 4 backend total consists of:
 
@@ -578,6 +627,12 @@ Run the root TypeScript check:
 npx tsc --noEmit
 ```
 
+Run the screenshot test separately when updated screenshots are needed:
+
+```powershell
+npx playwright test e2e/lab-04/screenshots.spec.ts
+```
+
 Check Git whitespace:
 
 ```powershell
@@ -602,6 +657,7 @@ The E2E suite uses the configured Playwright web servers and Chromium project in
 - [x] Actions Taken E2E flow passed.
 - [x] Ticket Resolution E2E flow passed.
 - [x] Staff Dashboard E2E drill-down passed.
+- [x] Desktop, tablet, and mobile screenshot capture passed.
 - [x] Migration safety static tests passed.
 - [x] Prisma reports all 10 migrations applied.
 - [x] Repeatable Lab 4 seed checks completed.
@@ -618,12 +674,12 @@ The E2E suite uses the configured Playwright web servers and Chromium project in
 
 ## 16. Final Verification Conclusion
 
-The latest verification confirms that:
+The latest Issue #9 verification confirms that:
 
 - 97 backend tests passed.
 - 61 frontend tests passed.
-- 13 Playwright E2E tests passed.
-- 171 automated tests passed in total.
+- 14 Playwright E2E tests passed.
+- 172 automated tests passed in total.
 - Client production build succeeded.
 - Server TypeScript build succeeded.
 - Root TypeScript check passed.
@@ -633,9 +689,10 @@ The latest verification confirms that:
 - Read-only database integrity verification passed.
 - Requester and Staff Dashboard tests passed.
 - Actions Taken and Ticket Resolution E2E flows passed.
+- Screenshot automation generated 33 screenshots across desktop, tablet, and mobile viewports.
 - Automated accessibility and responsive smoke checks passed for the tested pages.
 - Configured Labs 1–3 regression tests passed.
 
 The historical pre-migration data snapshot was not available, so a complete before-and-after data comparison is not claimed. The automated accessibility checks also do not replace a full manual accessibility audit.
 
-**Final status:** Lab 4 Issue #8 has passed the recorded automated verification. The remaining limitations are explicitly documented for review. Final integrated-branch review and Git workflow completion are separate steps.
+**Final status:** Lab 4 Issue #9 has passed the recorded automated verification on the current feature branch. The final integrated-branch review and Git workflow completion remain separate steps. The documented limitations must also be considered during final review.

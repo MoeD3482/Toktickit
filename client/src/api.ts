@@ -1226,6 +1226,59 @@ export async function getAdminUsers(
 
   return response.json();
 }
+export type CreateAdminUserInput = {
+  displayName: string;
+  email: string;
+  role: AdminUserRole;
+  password: string;
+};
+
+export async function createAdminUser(
+  input: CreateAdminUserInput
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    "/api/v1/admin/users",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to create user."
+  );
+}
+export type UpdateAdminUserInput = {
+  displayName: string;
+  email: string;
+  role: AdminUserRole;
+  isActive: boolean;
+};
+export async function getAdminUser(
+  userId: string
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+    {},
+    "Unable to load user."
+  );
+}
+export async function updateAdminUser(
+  userId: string,
+  input: UpdateAdminUserInput
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to update user."
+  );
+}
 /* =========================================================
    Lab 4 - Actions Taken
    ========================================================= */

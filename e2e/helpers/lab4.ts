@@ -64,8 +64,9 @@ export async function createLab4TicketFixture(summary: string) {
       },
     });
 
-    return {
+   return {
       requesterId: requester.id,
+      requesterEmail: requester.email,
       ticketId: ticket.id,
       ticketNo: ticket.ticketNo,
       summary,

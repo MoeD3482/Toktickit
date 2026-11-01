@@ -1,6 +1,7 @@
-
+﻿
 import { useEffect, useState } from "react";
-
+import EditAdminUserForm from "./components/EditAdminUserForm";
+import AdminUserForm from "./components/AdminUserForm";
 import ChangePassword from "./components/ChangePassword.js";
 import CreateTicket from "./components/CreateTicket.js";
 import Login from "./components/Login.js";
@@ -28,7 +29,8 @@ type ActivePage =
   | "staff-dashboard"
   | "staff-queue"
   | "user-management"
-  | "create-user";
+  | "create-user"
+  | "edit-user";
 
 type AuthState =
   | "checking"
@@ -44,6 +46,9 @@ export default function App() {
 
   const [activePage, setActivePage] =
     useState<ActivePage>("create");
+
+  const [selectedAdminUserId, setSelectedAdminUserId] =
+  useState<string | null>(null);
 
   const [selectedTicketId, setSelectedTicketId] =
     useState<string | null>(null);
@@ -310,33 +315,39 @@ export default function App() {
         </div>
       </div>
 
-      {canUseAdminWorkflow &&
+            {canUseAdminWorkflow &&
         activePage === "user-management" && (
           <UserManagement
             onCreateUser={() => setActivePage("create-user")}
-            onEditUser={() => {
-              // Edit workflow can be wired here later.
+            onEditUser={(userId) => {
+              setSelectedAdminUserId(userId);
+              setActivePage("edit-user");
             }}
           />
         )}
 
       {canUseAdminWorkflow &&
         activePage === "create-user" && (
-          <section>
-            <h1>Create User</h1>
-
-            <p>Create a new TokTickIT user account.</p>
-
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => setActivePage("user-management")}
-            >
-              Back to User Management
-            </button>
-          </section>
+          <AdminUserForm
+            onCancel={() => setActivePage("user-management")}
+            onCreated={() => setActivePage("user-management")}
+          />
         )}
 
+      {canUseAdminWorkflow &&
+        activePage === "edit-user" &&
+        selectedAdminUserId && (
+          <EditAdminUserForm
+            userId={selectedAdminUserId}
+            onCancel={() => {
+              setSelectedAdminUserId(null);
+              setActivePage("user-management");
+            }}
+            onUpdated={() => {
+              setSelectedAdminUserId(null);
+              setActivePage("user-management");
+            }}
+          />)}
       {!canUseRequesterWorkflow &&
         !canUseStaffWorkflow &&
         !canUseAdminWorkflow && (
