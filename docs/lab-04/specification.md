@@ -454,19 +454,20 @@ in docs/lab-04/tests.md.
 
 ## 11. Definition of Done
 
-- [ ] Engineering contract reviewed before implementation.
-- [ ] Test plan and acceptance-criterion traceability are complete.
-- [ ] Database migration and seed behavior are verified.
-- [ ] Actions Taken APIs and authorization tests pass.
-- [ ] Actions Taken UI and component tests pass.
-- [ ] Ticket transition and resolution rules are enforced by the backend.
-- [ ] Requester and IT Staff dashboards use accurate backend metrics.
-- [ ] Labs 1–3 regression tests continue to pass.
-- [ ] Responsive, accessibility, and failure-state checks are complete.
-- [ ] Production builds and end-to-end tests pass.
-- [ ] README, reviewer.md, ai-use.md, and screenshots are updated.
-- [ ] Feature PRs are reviewed and merged through lab4-staging into main.
-- [ ] Final submission PDF contains Answer Part 1 through Answer Part 9.
+- [x] Engineering contract reviewed before implementation.
+- [x] Test plan and acceptance-criterion traceability are complete.
+- [x] Database migration and seed behavior are verified.
+- [x] Actions Taken APIs and authorization tests pass.
+- [x] Actions Taken UI and component tests pass.
+- [x] Ticket transition and resolution rules are enforced by the backend.
+- [x] Requester and IT Staff dashboards use accurate backend metrics.
+- [x] Labs 1–3 regression tests continue to pass.
+- [x] Responsive, accessibility, and failure-state checks are complete.
+- [x] Production builds and end-to-end tests pass.
+- [x] README, reviewer.md, ai-use.md, and screenshots are updated.
+- [x] Feature PRs are reviewed and merged through lab4-staging into main.
+- [x] Final submission PDF contains Answer Part 1 through Answer Part 9.
+
 
 An issue must not be marked Done until its implementation is reviewed,
 merged, and verified.
