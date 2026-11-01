@@ -1,3 +1,4 @@
+﻿import { LAB2_TEST_REQUESTER_PREFIX } from "../helpers/lab2-test-requesters.js";
 import { afterEach, describe, expect, it } from "vitest";
 import request from "supertest";
 import { randomUUID } from "crypto";
@@ -47,7 +48,7 @@ describe("GET /api/v1/tickets/:id", () => {
 
     const requester =
       await prisma.developmentRequester.findFirstOrThrow({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
       });
 
     const category =
@@ -121,7 +122,7 @@ describe("GET /api/v1/tickets/:id", () => {
 
     const requesters =
       await prisma.developmentRequester.findMany({
-        where: { isActive: true },
+        where: { isActive: true, email: { startsWith: LAB2_TEST_REQUESTER_PREFIX } },
         take: 2,
       });
 

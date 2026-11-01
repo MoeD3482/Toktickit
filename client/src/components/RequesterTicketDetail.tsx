@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useState,
@@ -15,6 +16,7 @@ import {
 } from "../api.js";
 
 import AttachmentSection from "./AttachmentSection.js";
+import ActionsTakenSection from "./ActionsTakenSection.js";
 
 interface RequesterTicketDetailProps {
   requester: DevelopmentRequester;
@@ -39,42 +41,26 @@ export default function RequesterTicketDetail({
   const [loading, setLoading] =
     useState(true);
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
-  const [
-    attachments,
-    setAttachments,
-  ] = useState<TicketAttachment[]>([]);
+  const [attachments, setAttachments] =
+    useState<TicketAttachment[]>([]);
 
-  const [
-    attachmentsLoading,
-    setAttachmentsLoading,
-  ] = useState(true);
+  const [attachmentsLoading, setAttachmentsLoading] =
+    useState(true);
 
-  const [
-    attachmentError,
-    setAttachmentError,
-  ] = useState("");
+  const [attachmentError, setAttachmentError] =
+    useState("");
 
-  const [
-    uploading,
-    setUploading,
-  ] = useState(false);
+  const [uploading, setUploading] =
+    useState(false);
 
-  const [
-    failedUpload,
-    setFailedUpload,
-  ] = useState<FailedUpload | null>(
-    null
-  );
+  const [failedUpload, setFailedUpload] =
+    useState<FailedUpload | null>(null);
 
-  const [
-    attachmentSectionKey,
-    setAttachmentSectionKey,
-  ] = useState(0);
+  const [attachmentSectionKey, setAttachmentSectionKey] =
+    useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,11 +70,10 @@ export default function RequesterTicketDetail({
         setLoading(true);
         setErrorMessage("");
 
-        const result =
-          await getTicketDetail(
-            requester.id,
-            ticketId
-          );
+        const result = await getTicketDetail(
+          requester.id,
+          ticketId
+        );
 
         if (!cancelled) {
           setTicket(result);
@@ -108,15 +93,12 @@ export default function RequesterTicketDetail({
       }
     }
 
-    loadTicket();
+    void loadTicket();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    requester.id,
-    ticketId,
-  ]);
+  }, [requester.id, ticketId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,11 +108,10 @@ export default function RequesterTicketDetail({
         setAttachmentsLoading(true);
         setAttachmentError("");
 
-        const result =
-          await getTicketAttachments(
-            requester.id,
-            ticketId
-          );
+        const result = await getTicketAttachments(
+          requester.id,
+          ticketId
+        );
 
         if (!cancelled) {
           setAttachments(result);
@@ -150,49 +131,39 @@ export default function RequesterTicketDetail({
       }
     }
 
-    loadAttachments();
+    void loadAttachments();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    requester.id,
-    ticketId,
-  ]);
+  }, [requester.id, ticketId]);
 
-  async function handleUpload(
-    file: File
-  ) {
+  async function handleUpload(file: File) {
     try {
       setUploading(true);
       setAttachmentError("");
 
-      const uploaded =
-        await uploadTicketAttachment(
-          requester.id,
-          ticketId,
-          file
-        );
-
-      setAttachments(
-        (current) => [
-          ...current,
-          uploaded,
-        ]
+      const uploaded = await uploadTicketAttachment(
+        requester.id,
+        ticketId,
+        file
       );
+
+      setAttachments((current) => [
+        ...current,
+        uploaded,
+      ]);
 
       setFailedUpload(null);
 
       setAttachmentSectionKey(
-        (current) =>
-          current + 1
+        (current) => current + 1
       );
     } catch {
       setFailedUpload({
         file,
         filename: file.name,
-        message:
-          "Attachment upload failed.",
+        message: "Attachment upload failed.",
       });
     } finally {
       setUploading(false);
@@ -204,9 +175,7 @@ export default function RequesterTicketDetail({
       return;
     }
 
-    await handleUpload(
-      failedUpload.file
-    );
+    await handleUpload(failedUpload.file);
   }
 
   async function handleRemove(
@@ -216,23 +185,19 @@ export default function RequesterTicketDetail({
     try {
       setAttachmentError("");
 
-      const removed =
-        await removeTicketAttachment(
-          requester.id,
-          ticketId,
-          attachmentId,
-          reason
-        );
+      const removed = await removeTicketAttachment(
+        requester.id,
+        ticketId,
+        attachmentId,
+        reason
+      );
 
-      setAttachments(
-        (current) =>
-          current.map(
-            (attachment) =>
-              attachment.id ===
-              removed.id
-                ? removed
-                : attachment
-          )
+      setAttachments((current) =>
+        current.map((attachment) =>
+          attachment.id === removed.id
+            ? removed
+            : attachment
+        )
       );
     } catch {
       setAttachmentError(
@@ -252,32 +217,24 @@ export default function RequesterTicketDetail({
     try {
       setAttachmentError("");
 
-      const blob =
-        await downloadTicketAttachment(
-          requester.id,
-          ticketId,
-          attachmentId
-        );
+      const blob = await downloadTicketAttachment(
+        requester.id,
+        ticketId,
+        attachmentId
+      );
 
-      const objectUrl =
-        URL.createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
 
-      const link =
-        document.createElement("a");
+      const link = document.createElement("a");
 
       link.href = objectUrl;
       link.download = filename;
 
-      document.body.appendChild(
-        link
-      );
-
+      document.body.appendChild(link);
       link.click();
       link.remove();
 
-      URL.revokeObjectURL(
-        objectUrl
-      );
+      URL.revokeObjectURL(objectUrl);
     } catch {
       setAttachmentError(
         "Unable to download Attachment."
@@ -285,9 +242,7 @@ export default function RequesterTicketDetail({
     }
   }
 
-  function getPriorityBadgeClass(
-    priority: string
-  ) {
+  function getPriorityBadgeClass(priority: string) {
     switch (priority) {
       case "Urgent":
         return "text-bg-danger";
@@ -322,10 +277,7 @@ export default function RequesterTicketDetail({
     );
   }
 
-  if (
-    errorMessage ||
-    !ticket
-  ) {
+  if (errorMessage || !ticket) {
     return (
       <div className="card shadow-sm">
         <div className="card-body p-4">
@@ -369,28 +321,24 @@ export default function RequesterTicketDetail({
                     ticket.requestedPriority
                   )}`}
                 >
-                  {
-                    ticket.requestedPriority
-                  }
+                  {ticket.requestedPriority}
                 </span>
               </div>
 
               <p className="text-muted mb-0">
                 Ticket Number:{" "}
-                <strong>
-                  {ticket.ticketNo}
-                </strong>
+                <strong>{ticket.ticketNo}</strong>
               </p>
             </div>
 
             <button
-  type="button"
-  className="btn btn-outline-success"
-  aria-label="Back to My Tickets"
-  onClick={onBack}
->
-  ← Back to My Tickets
-</button>
+              type="button"
+              className="btn btn-outline-success"
+              aria-label="Back to My Tickets"
+              onClick={onBack}
+            >
+              ← Back to My Tickets
+            </button>
           </div>
 
           <div className="zen-section p-3 p-md-4">
@@ -416,9 +364,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailTicketNumber"
                   className="form-control"
-                  value={
-                    ticket.ticketNo
-                  }
+                  value={ticket.ticketNo}
                   readOnly
                 />
               </div>
@@ -434,10 +380,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailRequester"
                   className="form-control"
-                  value={
-                    ticket.requester
-                      .displayName
-                  }
+                  value={ticket.requester.displayName}
                   readOnly
                 />
               </div>
@@ -453,9 +396,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailCategory"
                   className="form-control"
-                  value={
-                    ticket.category.name
-                  }
+                  value={ticket.category.name}
                   readOnly
                 />
               </div>
@@ -471,10 +412,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailRelatedSystem"
                   className="form-control"
-                  value={
-                    ticket.relatedSystem
-                      .name
-                  }
+                  value={ticket.relatedSystem.name}
                   readOnly
                 />
               </div>
@@ -490,9 +428,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailPriority"
                   className="form-control"
-                  value={
-                    ticket.requestedPriority
-                  }
+                  value={ticket.requestedPriority}
                   readOnly
                 />
               </div>
@@ -508,9 +444,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailStatus"
                   className="form-control"
-                  value={
-                    ticket.status
-                  }
+                  value={ticket.status}
                   readOnly
                 />
               </div>
@@ -526,9 +460,7 @@ export default function RequesterTicketDetail({
                 <input
                   id="detailSummary"
                   className="form-control"
-                  value={
-                    ticket.summary
-                  }
+                  value={ticket.summary}
                   readOnly
                 />
               </div>
@@ -545,9 +477,7 @@ export default function RequesterTicketDetail({
                   id="detailDescription"
                   className="form-control"
                   rows={5}
-                  value={
-                    ticket.description
-                  }
+                  value={ticket.description}
                   readOnly
                 />
               </div>
@@ -592,6 +522,12 @@ export default function RequesterTicketDetail({
         </div>
       </div>
 
+      {/* Lab 4 - Requester read-only Actions Taken */}
+      <ActionsTakenSection
+        ticketId={ticketId}
+        editable={false}
+      />
+
       {attachmentError && (
         <div
           className="alert alert-danger"
@@ -617,43 +553,23 @@ export default function RequesterTicketDetail({
         </div>
       ) : (
         <AttachmentSection
-          key={
-            attachmentSectionKey
-          }
-          requesterId={
-            requester.id
-          }
-          ticketId={
-            ticketId
-          }
-          attachments={
-            attachments
-          }
-          uploading={
-            uploading
-          }
+          key={attachmentSectionKey}
+          requesterId={requester.id}
+          ticketId={ticketId}
+          attachments={attachments}
+          uploading={uploading}
           failedAttachment={
             failedUpload
               ? {
-                  filename:
-                    failedUpload.filename,
-                  message:
-                    failedUpload.message,
+                  filename: failedUpload.filename,
+                  message: failedUpload.message,
                 }
               : undefined
           }
-          onUpload={
-            handleUpload
-          }
-          onRetryUpload={
-            handleRetryUpload
-          }
-          onDownload={
-            handleDownload
-          }
-          onRemove={
-            handleRemove
-          }
+          onUpload={handleUpload}
+          onRetryUpload={handleRetryUpload}
+          onDownload={handleDownload}
+          onRemove={handleRemove}
         />
       )}
     </div>

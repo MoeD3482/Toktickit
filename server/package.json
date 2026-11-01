@@ -9,7 +9,9 @@
     "start": "node dist/index.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pretest": "tsx tests/ensure-lab2-test-requesters.ts",
+    "posttest": "tsx tests/cleanup-lab2-test-requesters.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

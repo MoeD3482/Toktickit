@@ -19,6 +19,7 @@ const priorityValues = [
 
 const ticketStatusValues = [
   "New",
+  "Open",
   "InProgress",
   "WaitingForRequester",
   "Resolved",
@@ -34,16 +35,25 @@ const allowedTransitions: Record<
   TicketStatusValue,
   TicketStatusValue[]
 > = {
-  New: ["InProgress", "Cancelled"],
+  New: ["Open", "Cancelled"],
+  Open: ["InProgress", "Cancelled"],
   InProgress: [
     "WaitingForRequester",
     "Resolved",
     "Cancelled",
   ],
-  WaitingForRequester: ["InProgress", "Resolved"],
+  WaitingForRequester: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Resolved: ["Closed", "Reopened"],
-  Closed: [],
-  Reopened: ["InProgress"],
+  Closed: ["Reopened"],
+  Reopened: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Cancelled: [],
 };
 
@@ -117,7 +127,27 @@ function queryValue(value: unknown) {
     ? value.trim()
     : undefined;
 }
+async function requireStaffDashboardUser(
+  req: Request,
+  res: Response
+) {
+  const user = await getAuthenticatedUser(req);
 
+  if (!user) {
+    sendAuthenticationRequired(res);
+    return null;
+  }
+
+  if (
+    !hasRole(user, "ITStaff") &&
+    !hasRole(user, "Administrator")
+  ) {
+    sendForbidden(res);
+    return null;
+  }
+
+  return user;
+}
 async function requireStaffUser(
   req: Request,
   res: Response
@@ -136,7 +166,6 @@ async function requireStaffUser(
 
   return user;
 }
-
 async function authorizePublicCommentTicket(
   req: Request,
   res: Response,
@@ -382,6 +411,158 @@ function queueQuery(req: Request) {
 export function registerStaffRoutes(
   app: Express
 ) {
+    app.get(
+    "/api/v1/staff/dashboard",
+    async (req: Request, res: Response) => {
+      try {
+        const dashboardUser =
+          await requireStaffDashboardUser(req, res);
+
+        if (!dashboardUser) {
+          return;
+        }
+
+        const prisma = getPrisma();
+
+        const recentBoundary = new Date(
+          Date.now() - 30 * 24 * 60 * 60 * 1000
+        );
+
+        const terminalStatuses = [
+          "Resolved",
+          "Closed",
+          "Cancelled",
+        ] as const;
+
+        const activeTicketWhere = {
+          status: {
+            notIn: [...terminalStatuses],
+          },
+        };
+
+        const [
+          unassignedTicketCount,
+          ownedByCurrentUserCount,
+          statusGroups,
+          priorityGroups,
+          recentTickets,
+          urgentTickets,
+        ] = await Promise.all([
+          prisma.ticket.count({
+            where: {
+              ...activeTicketWhere,
+              assignedToUserId: null,
+            },
+          }),
+
+          prisma.ticket.count({
+            where: {
+              ...activeTicketWhere,
+              assignedToUserId: dashboardUser.id,
+            },
+          }),
+
+          prisma.ticket.groupBy({
+            by: ["status"],
+            where: activeTicketWhere,
+            _count: {
+              _all: true,
+            },
+          }),
+
+          prisma.ticket.groupBy({
+            by: ["itPriority"],
+            where: {
+              ...activeTicketWhere,
+              itPriority: {
+                not: null,
+              },
+            },
+            _count: {
+              _all: true,
+            },
+          }),
+
+          prisma.ticket.findMany({
+            where: {
+              updatedAt: {
+                gte: recentBoundary,
+              },
+            },
+            orderBy: [
+              { updatedAt: "desc" },
+              { ticketNo: "desc" },
+            ],
+            take: 5,
+            select: {
+              id: true,
+              ticketNo: true,
+              summary: true,
+              status: true,
+              itPriority: true,
+              assignedToUserId: true,
+              updatedAt: true,
+            },
+          }),
+
+          prisma.ticket.findMany({
+            where: {
+              itPriority: "Urgent",
+              ...activeTicketWhere,
+            },
+            orderBy: [
+              { updatedAt: "desc" },
+              { ticketNo: "desc" },
+            ],
+            take: 5,
+            select: {
+              id: true,
+              ticketNo: true,
+              summary: true,
+              status: true,
+              itPriority: true,
+              assignedToUserId: true,
+              updatedAt: true,
+            },
+          }),
+        ]);
+
+        return res.status(200).json({
+          data: {
+            unassignedTicketCount,
+            ownedByCurrentUserCount,
+            statusCounts: Object.fromEntries(
+              statusGroups.map((item) => [
+                item.status,
+                item._count._all,
+              ])
+            ),
+            priorityCounts: Object.fromEntries(
+              priorityGroups.map((item) => [
+                item.itPriority,
+                item._count._all,
+              ])
+            ),
+            recentTickets,
+            urgentTickets,
+          },
+        });
+      } catch (error) {
+        console.error(
+          "Failed to load staff dashboard:",
+          error
+        );
+
+        return res.status(500).json({
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Failed to load staff dashboard.",
+            fieldErrors: [],
+          },
+        });
+      }
+    }
+  );
   app.get(
     "/api/v1/staff/assignees",
     async (
@@ -1891,6 +2072,7 @@ export function registerStaffRoutes(
     }
   );
 
+  
   app.patch(
     "/api/v1/staff/tickets/:ticketId/status",
     async (
@@ -1898,57 +2080,60 @@ export function registerStaffRoutes(
       res: Response
     ) => {
       try {
-        const staffUser =
-          await requireStaffUser(
-            req,
-            res
-          );
+        // 1. Authentication and authorization
+        const staffUser = await getAuthenticatedUser(req);
 
         if (!staffUser) {
+          sendAuthenticationRequired(res);
           return;
         }
 
+        if (
+          !hasRole(staffUser, "ITStaff") &&
+          !hasRole(staffUser, "Administrator")
+        ) {
+          sendForbidden(res);
+          return;
+        }
+
+        // 2. Read request values
         const status =
-          typeof req.body
-            ?.status ===
-          "string"
+          typeof req.body?.status === "string"
             ? req.body.status.trim()
             : "";
 
         const reason =
-          typeof req.body
-            ?.reason ===
-          "string"
+          typeof req.body?.reason === "string"
             ? req.body.reason.trim()
             : "";
 
-        if (
-          !isTicketStatus(status)
-        ) {
+        const expectedUpdatedAt =
+          typeof req.body?.expectedUpdatedAt === "string"
+            ? req.body.expectedUpdatedAt.trim()
+            : "";
+
+        // 3. Validate status
+        if (!isTicketStatus(status)) {
           return sendValidationError(
             res,
             "Status is invalid.",
             [
               {
-                field:
-                  "status",
-                message:
-                  "Status is invalid.",
+                field: "status",
+                message: "Status is invalid.",
               },
             ]
           );
         }
 
-        if (
-          reason.length > 500
-        ) {
+        // 4. Validate reason
+        if (reason.length > 500) {
           return sendValidationError(
             res,
             "Status is invalid.",
             [
               {
-                field:
-                  "reason",
+                field: "reason",
                 message:
                   "Reason must contain at most 500 characters.",
               },
@@ -1956,48 +2141,73 @@ export function registerStaffRoutes(
           );
         }
 
-        const prisma =
-          getPrisma();
+        // 5. Validate expectedUpdatedAt
+        const expectedUpdatedAtDate =
+          new Date(expectedUpdatedAt);
 
-        const ticket =
-          await prisma.ticket.findUnique(
-            {
-              where: {
-                id:
-                  req.params
-                    .ticketId,
+        if (
+          !expectedUpdatedAt ||
+          Number.isNaN(expectedUpdatedAtDate.getTime())
+        ) {
+          return sendValidationError(
+            res,
+            "Expected update timestamp is required.",
+            [
+              {
+                field: "expectedUpdatedAt",
+                message:
+                  "Provide the Ticket's latest updatedAt timestamp.",
               },
-              select: {
-                id: true,
-                status:
-                  true,
-              },
-            }
-          );
-
-        if (!ticket) {
-          return sendTicketNotFound(
-            res
+            ]
           );
         }
 
+        const prisma = getPrisma();
+
+        // 6. Find current Ticket
+        const ticket = await prisma.ticket.findUnique({
+          where: {
+            id: req.params.ticketId,
+          },
+          select: {
+            id: true,
+            status: true,
+            updatedAt: true,
+          },
+        });
+
+        if (!ticket) {
+          return sendTicketNotFound(res);
+        }
+
+        // 7. Detect stale data
         if (
-          !allowedTransitions[
-            ticket.status
-          ].includes(status)
+          ticket.updatedAt.getTime() !==
+          expectedUpdatedAtDate.getTime()
+        ) {
+          return res.status(409).json({
+            error: {
+              code: "TICKET_STATUS_CONFLICT",
+              message:
+                "This Ticket has changed. Refresh the details and try again.",
+              fieldErrors: [],
+            },
+          });
+        }
+
+        // 8. Enforce the approved transition matrix
+        if (
+          !allowedTransitions[ticket.status].includes(status)
         ) {
           return sendValidationError(
             res,
             "Status transition is not allowed.",
             [
               {
-                field:
-                  "status",
+                field: "status",
                 message: `Cannot change ${statusLabel(
                   ticket.status
-                )} to ${statusLabel(
-                  status
-                )}.`,
+                )} to ${statusLabel(status)}.`,
               },
             ]
           );
@@ -2006,59 +2216,149 @@ export function registerStaffRoutes(
         const actionBody =
           `Status changed from ${statusLabel(
             ticket.status
-          )} to ${statusLabel(
-            status
-          )}.` +
-          (reason
-            ? ` ${reason}`
-            : "");
+          )} to ${statusLabel(status)}.` +
+          (reason ? ` ${reason}` : "");
 
-        const updated =
-          await prisma.$transaction(
-            async (tx) => {
-              const next =
-                await tx.ticket.update(
-                  {
-                    where: {
-                      id:
-                        ticket.id,
-                    },
-                    data: {
-                      status,
-                    },
-                    select: {
-                      id: true,
-                      status:
-                        true,
-                    },
-                  }
-                );
-
-              await tx.ticketAction.create(
-                {
-                  data: {
-                    ticketId:
-                      ticket.id,
-                    actorUserId:
-                      staffUser.id,
-                    actionType:
-                      "StatusChanged",
-                    body:
-                      actionBody,
+        // 9. Atomic update and history creation
+        const result = await prisma.$transaction(
+          async (tx) => {
+            // Resolution gate
+            if (status === "Resolved") {
+              const latestAction =
+                await tx.actionTaken.findFirst({
+                  where: {
+                    ticketId: ticket.id,
                   },
-                }
-              );
+                  orderBy: [
+                    { actionAt: "desc" },
+                    { createdAt: "desc" },
+                  ],
+                  select: {
+                    id: true,
+                    followUpRequired: true,
+                  },
+                });
 
-              return next;
+              if (!latestAction) {
+                return {
+                  kind: "blocked" as const,
+                  message:
+                    "Create an Action Taken before resolving this Ticket.",
+                };
+              }
+
+              if (latestAction.followUpRequired) {
+                return {
+                  kind: "blocked" as const,
+                  message:
+                    "Complete the required follow-up before resolving this Ticket.",
+                };
+              }
             }
-          );
 
-        return res
-          .status(200)
-          .json({
-            data: updated,
+            // Optimistic concurrency check.
+            // Only one request can update this version of the Ticket.
+            const changed = await tx.ticket.updateMany({
+              where: {
+                id: ticket.id,
+                status: ticket.status,
+                updatedAt: ticket.updatedAt,
+              },
+              data: {
+                status,
+              },
+            });
+
+            if (changed.count !== 1) {
+              return {
+                kind: "conflict" as const,
+              };
+            }
+
+            // Record workflow history in the same transaction.
+            await tx.ticketAction.create({
+              data: {
+                ticketId: ticket.id,
+                actorUserId: staffUser.id,
+                actionType: "StatusChanged",
+                body: actionBody,
+              },
+            });
+
+            const updated = await tx.ticket.findUnique({
+              where: {
+                id: ticket.id,
+              },
+              select: {
+                id: true,
+                status: true,
+                updatedAt: true,
+              },
+            });
+
+            if (!updated) {
+              return {
+                kind: "conflict" as const,
+              };
+            }
+
+            return {
+              kind: "updated" as const,
+              data: updated,
+            };
+          },
+          {
+            isolationLevel:
+              Prisma.TransactionIsolationLevel.Serializable,
+          }
+        );
+
+        // 10. Handle resolution gate failure
+        if (result.kind === "blocked") {
+          return sendValidationError(
+            res,
+            "Ticket cannot be resolved.",
+            [
+              {
+                field: "status",
+                message: result.message,
+              },
+            ]
+          );
+        }
+
+        // 11. Handle concurrent update
+        if (result.kind === "conflict") {
+          return res.status(409).json({
+            error: {
+              code: "TICKET_STATUS_CONFLICT",
+              message:
+                "This Ticket was updated by another user. Refresh and try again.",
+              fieldErrors: [],
+            },
           });
+        }
+
+        // 12. Success
+        return res.status(200).json({
+          data: result.data,
+        });
       } catch (error) {
+        // PostgreSQL serialization conflict
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2034"
+        ) {
+          return res.status(409).json({
+            error: {
+              code: "TICKET_STATUS_CONFLICT",
+              message:
+                "This Ticket was updated by another user. Refresh and try again.",
+              fieldErrors: [],
+            },
+          });
+        }
+
         console.error(
           "Failed to update Ticket status:",
           error
@@ -2066,16 +2366,15 @@ export function registerStaffRoutes(
 
         return res.status(500).json({
           error: {
-            code:
-              "TICKET_STATUS_UPDATE_FAILED",
-            message:
-              "Unable to update Ticket status.",
+            code: "TICKET_STATUS_UPDATE_FAILED",
+            message: "Unable to update Ticket status.",
             fieldErrors: [],
           },
         });
       }
     }
   );
+
 
   app.post(
     "/api/v1/staff/tickets/:ticketId/actions",

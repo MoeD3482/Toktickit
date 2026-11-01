@@ -1,10 +1,11 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { getPrisma } from "./prisma.js";
-import { Prisma } from "@prisma/client";
+import { Prisma, TicketStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { attachmentStorage } from "./attachments/storage.js";
 import { attachmentUploadMiddleware } from "./attachments/upload.js";
+import { registerActionsTakenRoutes } from "./actions-taken.js";
 import {
   getAuthenticatedUser,
   sendAuthenticationRequired,
@@ -33,6 +34,7 @@ app.use(
 app.use(express.json());
 
 registerStaffRoutes(app);
+registerActionsTakenRoutes(app);
 
 // ---------------------------------------------------------------------------
 // Shared authorization helpers
@@ -1596,6 +1598,128 @@ app.get(
 );
 
 // ---------------------------------------------------------------------------
+// Lab 4 - Requester Dashboard
+// GET /api/v1/requester/dashboard
+// ---------------------------------------------------------------------------
+app.get(
+  "/api/v1/requester/dashboard",
+  async (req: Request, res: Response) => {
+    try {
+      const requesterContext =
+        await getRequesterContext(req, res);
+
+      if (!requesterContext) {
+        return;
+      }
+
+      const prisma = getPrisma();
+      const requesterWhere: Prisma.TicketWhereInput = {
+        requesterUserId:
+          requesterContext.requesterUserId,
+      };
+      const recentBoundary = new Date(
+        Date.now() - 30 * 24 * 60 * 60 * 1000
+      );
+      const openStatuses = [
+        "New",
+        "Open",
+        "InProgress",
+        "WaitingForRequester",
+        "Reopened",
+      ] as const;
+      const ticketSummarySelect = {
+        id: true,
+        ticketNo: true,
+        summary: true,
+        requestedPriority: true,
+        status: true,
+        updatedAt: true,
+      } as const;
+
+      const [
+        openTicketCount,
+        waitingForRequesterCount,
+        recentlyResolvedCount,
+        recentTickets,
+        attentionRequiredTickets,
+      ] = await Promise.all([
+        prisma.ticket.count({
+          where: {
+            ...requesterWhere,
+            status: { in: [...openStatuses] },
+          },
+        }),
+        prisma.ticket.count({
+          where: {
+            ...requesterWhere,
+            status: "WaitingForRequester",
+          },
+        }),
+        prisma.ticket.count({
+          where: {
+            ...requesterWhere,
+            status: { in: ["Resolved", "Closed"] },
+            updatedAt: { gte: recentBoundary },
+          },
+        }),
+        prisma.ticket.findMany({
+          where: {
+            ...requesterWhere,
+            updatedAt: { gte: recentBoundary },
+          },
+          select: ticketSummarySelect,
+          orderBy: [
+            { updatedAt: "desc" },
+            { ticketNo: "desc" },
+          ],
+          take: 5,
+        }),
+        // The approved requester attention signal is the documented
+        // Waiting for Requester Ticket status; no new workflow rule is added.
+        prisma.ticket.findMany({
+          where: {
+            ...requesterWhere,
+            status: "WaitingForRequester",
+          },
+          select: ticketSummarySelect,
+          orderBy: [
+            { updatedAt: "desc" },
+            { ticketNo: "desc" },
+          ],
+          take: 5,
+        }),
+      ]);
+
+      return res.status(200).json({
+        data: {
+          openTicketCount,
+          waitingForRequesterCount,
+          // This metric is the same bounded set displayed in recentTickets.
+          recentlyUpdatedCount: recentTickets.length,
+          recentlyResolvedCount,
+          recentTickets,
+          attentionRequiredTickets,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Failed to retrieve Requester Dashboard:",
+        error
+      );
+
+      return res.status(500).json({
+        error: {
+          code: "REQUESTER_DASHBOARD_FAILED",
+          message:
+            "Unable to load the Requester Dashboard. Please try again.",
+          fieldErrors: [],
+        },
+      });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Lab 3 - Requester My Tickets
 // GET /api/v1/tickets
 // ---------------------------------------------------------------------------
@@ -1644,11 +1768,76 @@ app.get(
               .requestedPriority
           : undefined;
 
-      const status =
+      const statusValues =
         typeof req.query.status ===
         "string"
           ? req.query.status
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
+          : [];
+
+      const updatedWithinDays =
+        typeof req.query.updatedWithinDays ===
+        "string"
+          ? Number(req.query.updatedWithinDays)
           : undefined;
+
+      const ticketStatuses = [
+        "New",
+        "Open",
+        "InProgress",
+        "WaitingForRequester",
+        "Resolved",
+        "Closed",
+        "Reopened",
+        "Cancelled",
+      ] as const;
+
+      if (
+        statusValues.some(
+          (value) => !ticketStatuses.includes(
+            value as (typeof ticketStatuses)[number]
+          )
+        )
+      ) {
+        return res.status(422).json({
+          error: {
+            code: "INVALID_STATUS",
+            message: "One or more Ticket statuses are invalid.",
+            fieldErrors: [
+              {
+                field: "status",
+                message: "Select one or more supported Ticket statuses.",
+              },
+            ],
+          },
+        });
+      }
+
+      if (
+        updatedWithinDays !== undefined &&
+        (!Number.isInteger(updatedWithinDays) ||
+          updatedWithinDays < 1 ||
+          updatedWithinDays > 365)
+      ) {
+        return res.status(422).json({
+          error: {
+            code: "INVALID_UPDATED_WINDOW",
+            message: "The updated Ticket window is invalid.",
+            fieldErrors: [
+              {
+                field: "updatedWithinDays",
+                message:
+                  "Updated Ticket window must be between 1 and 365 days.",
+              },
+            ],
+          },
+        });
+      }
+
+      const validStatusValues =
+        statusValues as TicketStatus[];
 
       const sort =
         typeof req.query.sort ===
@@ -1760,11 +1949,24 @@ app.get(
             }
           : {}),
 
-        ...(status
+        ...(validStatusValues.length > 0
           ? {
-              status:
-                status as
-                  | "New",
+              status: { in: validStatusValues },
+            }
+          : {}),
+
+        ...(updatedWithinDays !== undefined
+          ? {
+              updatedAt: {
+                gte: new Date(
+                  Date.now() -
+                    updatedWithinDays *
+                      24 *
+                      60 *
+                      60 *
+                      1000
+                ),
+              },
             }
           : {}),
       };

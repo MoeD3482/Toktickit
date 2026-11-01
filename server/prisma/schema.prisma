@@ -23,6 +23,7 @@ enum ITPriority {
 
 enum TicketStatus {
   New
+  Open
   InProgress
   WaitingForRequester
   Resolved
@@ -81,6 +82,7 @@ model User {
   ticketComments      TicketComment[]
   internalNotes       InternalNote[]
   ticketActions       TicketAction[]
+  actionsTaken        ActionTaken[]   @relation("ActionTakenPerformedBy")
 }
 
 model RelatedSystem {
@@ -120,6 +122,7 @@ model Ticket {
   comments      TicketComment[]
   internalNotes InternalNote[]
   actions       TicketAction[]
+  actionsTaken  ActionTaken[]
 
   @@index([requesterId])
   @@index([requesterUserId])
@@ -174,6 +177,28 @@ model TicketAction {
   @@index([ticketId, createdAt])
   @@index([actorUserId])
   @@index([actionType])
+}
+
+model ActionTaken {
+  id                String   @id @default(uuid())
+  ticketId          String
+  performedByUserId String
+  actionAt          DateTime
+  description       String
+  result            String
+  followUpRequired  Boolean  @default(false)
+  followUpNote      String?
+  attachmentNotes   String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  idempotencyKey     String?  @unique
+  requestFingerprint String?
+
+  ticket      Ticket @relation(fields: [ticketId], references: [id])
+  performedBy User   @relation("ActionTakenPerformedBy", fields: [performedByUserId], references: [id])
+
+  @@index([ticketId, actionAt])
+  @@index([performedByUserId])
 }
 
 model Attachment {

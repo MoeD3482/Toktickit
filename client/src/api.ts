@@ -328,7 +328,7 @@ export interface TicketListItem {
   };
 
   requestedPriority: RequestedPriority;
-  status: "New";
+  status: TicketStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -345,7 +345,8 @@ export interface MyTicketsQuery {
   categoryId?: number;
   relatedSystemId?: string;
   requestedPriority?: RequestedPriority;
-  status?: "New";
+  status?: TicketStatus | readonly TicketStatus[];
+  updatedWithinDays?: number;
   sort?: "ticketNo" | "createdAt" | "updatedAt";
   order?: "asc" | "desc";
   page?: number;
@@ -394,7 +395,16 @@ export async function getMyTickets(
   if (query.status) {
     params.set(
       "status",
-      query.status
+      typeof query.status === "string"
+        ? query.status
+        : query.status.join(",")
+    );
+  }
+
+  if (query.updatedWithinDays !== undefined) {
+    params.set(
+      "updatedWithinDays",
+      String(query.updatedWithinDays)
     );
   }
 
@@ -452,6 +462,59 @@ export async function getMyTickets(
   return result;
 }
 
+export interface RequesterDashboardTicket {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  requestedPriority: RequestedPriority;
+  status: TicketStatus;
+  updatedAt: string;
+}
+
+export interface RequesterDashboard {
+  openTicketCount: number;
+  waitingForRequesterCount: number;
+  recentlyUpdatedCount: number;
+  recentlyResolvedCount: number;
+  recentTickets: RequesterDashboardTicket[];
+  attentionRequiredTickets: RequesterDashboardTicket[];
+}
+
+export function getRequesterDashboard(): Promise<
+  RequesterDashboard
+> {
+  return staffRequest(
+    "/api/v1/requester/dashboard",
+    {},
+    "Unable to load the Requester Dashboard."
+  );
+}
+export interface StaffDashboardTicket {
+  id: string;
+  ticketNo: string;
+  summary: string;
+  status: TicketStatus;
+  itPriority: ITPriority | null;
+  assignedToUserId: string | null;
+  updatedAt: string;
+}
+
+export interface StaffDashboard {
+  unassignedTicketCount: number;
+  ownedByCurrentUserCount: number;
+  statusCounts: Partial<Record<TicketStatus, number>>;
+  priorityCounts: Partial<Record<ITPriority, number>>;
+  recentTickets: StaffDashboardTicket[];
+  urgentTickets: StaffDashboardTicket[];
+}
+
+export function getStaffDashboard(): Promise<StaffDashboard> {
+  return staffRequest(
+    "/api/v1/staff/dashboard",
+    {},
+    "Unable to load the Staff Dashboard."
+  );
+}
 export interface TicketDetail {
   id: string;
   ticketNo: string;
@@ -474,7 +537,7 @@ export interface TicketDetail {
   summary: string;
   description: string;
   requestedPriority: RequestedPriority;
-  status: "New";
+  status: TicketStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -648,6 +711,7 @@ export type ITPriority = RequestedPriority;
 
 export type TicketStatus =
   | "New"
+  | "Open"
   | "InProgress"
   | "WaitingForRequester"
   | "Resolved"
@@ -945,10 +1009,12 @@ export function updateStaffITPriority(
 export function updateStaffStatus(
   ticketId: string,
   status: TicketStatus,
-  reason: string
+  reason: string,
+  expectedUpdatedAt: string
 ): Promise<{
   id: string;
   status: TicketStatus;
+  updatedAt: string;
 }> {
   return staffRequest(
     `/api/v1/staff/tickets/${ticketId}/status`,
@@ -960,6 +1026,7 @@ export function updateStaffStatus(
       body: JSON.stringify({
         status,
         reason,
+        expectedUpdatedAt,
       }),
     },
     "Unable to update Ticket status."
@@ -1158,4 +1225,136 @@ export async function getAdminUsers(
   }
 
   return response.json();
+}
+export type CreateAdminUserInput = {
+  displayName: string;
+  email: string;
+  role: AdminUserRole;
+  password: string;
+};
+
+export async function createAdminUser(
+  input: CreateAdminUserInput
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    "/api/v1/admin/users",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to create user."
+  );
+}
+export type UpdateAdminUserInput = {
+  displayName: string;
+  email: string;
+  role: AdminUserRole;
+  isActive: boolean;
+};
+export async function getAdminUser(
+  userId: string
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+    {},
+    "Unable to load user."
+  );
+}
+export async function updateAdminUser(
+  userId: string,
+  input: UpdateAdminUserInput
+): Promise<AdminUser> {
+  return staffRequest<AdminUser>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to update user."
+  );
+}
+/* =========================================================
+   Lab 4 - Actions Taken
+   ========================================================= */
+
+export interface ActionTaken {
+  id: string;
+  ticketId: string;
+  performedByUserId: string;
+  actionAt: string;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  performedBy: StaffActor;
+}
+
+export interface ActionTakenInput {
+  actionAt: string;
+  description: string;
+  result: string;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+}
+
+export interface UpdateActionTakenInput
+  extends ActionTakenInput {
+  expectedUpdatedAt: string;
+}
+
+export function getTicketActionsTaken(
+  ticketId: string
+): Promise<ActionTaken[]> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken`,
+    {},
+    "Unable to load Actions Taken."
+  );
+}
+
+export function createTicketActionTaken(
+  ticketId: string,
+  input: ActionTakenInput,
+  idempotencyKey: string
+): Promise<ActionTaken> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to create Action Taken."
+  );
+}
+
+export function updateTicketActionTaken(
+  ticketId: string,
+  actionId: string,
+  input: UpdateActionTakenInput
+): Promise<ActionTaken> {
+  return staffRequest(
+    `/api/v1/tickets/${encodeURIComponent(ticketId)}/actions-taken/${encodeURIComponent(actionId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    },
+    "Unable to update Action Taken."
+  );
 }

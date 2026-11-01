@@ -60,9 +60,11 @@ describe("StaffTicketDetail", () => {
     expect(screen.getByText("Internal Notes")).toBeInTheDocument();
     expect(screen.getByText("Check account sync records.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Claim Ticket" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "In Progress" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Cancelled" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Resolved" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Open" })).toBeInTheDocument();
+expect(screen.getByRole("option", { name: "Cancelled" })).toBeInTheDocument();
+
+expect(screen.queryByRole("option", { name: "In Progress" })).not.toBeInTheDocument();
+expect(screen.queryByRole("option", { name: "Resolved" })).not.toBeInTheDocument();
   });
 
   it("saves IT Priority and records a public comment without discarding the note history", async () => {

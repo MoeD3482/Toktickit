@@ -1,9 +1,11 @@
+
 import {
   FormEvent,
   useEffect,
   useRef,
   useState,
 } from "react";
+
 import {
   addPublicComment,
   addStaffAction,
@@ -23,6 +25,7 @@ import {
   uploadStaffTicketAttachment,
 } from "../api.js";
 
+import ActionsTakenSection from "./ActionsTakenSection.js";
 interface StaffTicketDetailProps {
   ticketId: string;
   onBack: () => void;
@@ -36,16 +39,25 @@ const priorities: ITPriority[] = [
 ];
 
 const transitions: Record<TicketStatus, TicketStatus[]> = {
-  New: ["InProgress", "Cancelled"],
+  New: ["Open", "Cancelled"],
+  Open: ["InProgress", "Cancelled"],
   InProgress: [
     "WaitingForRequester",
     "Resolved",
     "Cancelled",
   ],
-  WaitingForRequester: ["InProgress", "Resolved"],
+  WaitingForRequester: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Resolved: ["Closed", "Reopened"],
-  Closed: [],
-  Reopened: ["InProgress"],
+  Closed: ["Reopened"],
+  Reopened: [
+    "Open",
+    "InProgress",
+    "Cancelled",
+  ],
   Cancelled: [],
 };
 
@@ -98,9 +110,7 @@ function formatFileSize(sizeBytes: number) {
   }
 
   if (sizeBytes < 1024 * 1024) {
-    return `${(
-      sizeBytes / 1024
-    ).toFixed(1)} KB`;
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
   }
 
   return `${(
@@ -315,16 +325,24 @@ export default function StaffTicketDetail({
       );
       return;
     }
+if (!ticket) {
+  setErrorMessage(
+    "Ticket details are not available. Please reload the Ticket."
+  );
+  return;
+}
 
+const expectedUpdatedAt = ticket.updatedAt;
     void save(
       "status",
       "Status updated.",
       async () => {
         await updateStaffStatus(
-          ticketId,
-          nextStatus,
-          statusReason
-        );
+  ticketId,
+  nextStatus,
+  statusReason,
+  ticket.updatedAt
+);
 
         setNextStatus("");
         setStatusReason("");
@@ -430,9 +448,7 @@ export default function StaffTicketDetail({
       );
 
     const validMimeType =
-      ALLOWED_MIME_TYPES.has(
-        file.type
-      );
+      ALLOWED_MIME_TYPES.has(file.type);
 
     if (
       !validExtension ||
@@ -491,8 +507,7 @@ export default function StaffTicketDetail({
       setSelectedAttachmentFile(null);
 
       if (attachmentInputRef.current) {
-        attachmentInputRef.current.value =
-          "";
+        attachmentInputRef.current.value = "";
       }
 
       setSuccessMessage(
@@ -549,9 +564,7 @@ export default function StaffTicketDetail({
       link.click();
       link.remove();
 
-      URL.revokeObjectURL(
-        objectUrl
-      );
+      URL.revokeObjectURL(objectUrl);
     } catch (error) {
       setErrorMessage(
         getErrorMessage(
@@ -718,9 +731,7 @@ export default function StaffTicketDetail({
               </dt>
 
               <dd className="col-sm-8 mb-0">
-                {dateTime(
-                  ticket.createdAt
-                )}
+                {dateTime(ticket.createdAt)}
               </dd>
             </dl>
           </section>
@@ -736,46 +747,36 @@ export default function StaffTicketDetail({
               Public Comments
             </h3>
 
-            {ticket.comments.length ===
-            0 ? (
+            {ticket.comments.length === 0 ? (
               <p className="text-muted">
                 No public comments yet.
               </p>
             ) : (
               <div className="list-group list-group-flush mb-3">
-                {ticket.comments.map(
-                  (comment) => (
-                    <div
-                      key={comment.id}
-                      className="list-group-item px-0"
-                    >
-                      <div className="d-flex justify-content-between gap-2">
-                        <strong>
-                          {
-                            comment.author
-                              .displayName
-                          }
-                        </strong>
+                {ticket.comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="list-group-item px-0"
+                  >
+                    <div className="d-flex justify-content-between gap-2">
+                      <strong>
+                        {comment.author.displayName}
+                      </strong>
 
-                        <span className="small text-muted">
-                          {dateTime(
-                            comment.createdAt
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="text-break mt-1">
-                        {comment.body}
-                      </div>
+                      <span className="small text-muted">
+                        {dateTime(comment.createdAt)}
+                      </span>
                     </div>
-                  )
-                )}
+
+                    <div className="text-break mt-1">
+                      {comment.body}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            <form
-              onSubmit={handleComment}
-            >
+            <form onSubmit={handleComment}>
               <label
                 htmlFor="public-comment"
                 className="form-label"
@@ -789,9 +790,7 @@ export default function StaffTicketDetail({
                 rows={3}
                 value={commentBody}
                 onChange={(event) =>
-                  setCommentBody(
-                    event.target.value
-                  )
+                  setCommentBody(event.target.value)
                 }
                 maxLength={2000}
                 required
@@ -800,9 +799,7 @@ export default function StaffTicketDetail({
               <button
                 type="submit"
                 className="btn btn-success"
-                disabled={
-                  saving !== ""
-                }
+                disabled={saving !== ""}
               >
                 {saving === "comment"
                   ? "Saving..."
@@ -824,8 +821,7 @@ export default function StaffTicketDetail({
               </h3>
 
               <span className="small text-muted">
-                {ticket.attachments.length}{" "}
-                / 5 Active
+                {ticket.attachments.length} / 5 Active
               </span>
             </div>
 
@@ -843,34 +839,25 @@ export default function StaffTicketDetail({
                 type="file"
                 accept=".jpg,.jpeg,.png,.webp,.pdf"
                 className={`form-control ${
-                  errorMessage
-                    ? "is-invalid"
-                    : ""
-                }`}
+  errorMessage ? "is-invalid" : ""
+}`}
                 disabled={
                   uploadingAttachment ||
-                  ticket.attachments
-                    .length >= 5
+                  ticket.attachments.length >= 5
                 }
-                onChange={
-                  handleAttachmentChange
-                }
+                onChange={handleAttachmentChange}
               />
 
               <div className="form-text">
-                Allowed: JPG, JPEG,
-                PNG, WEBP, PDF.
+                Allowed: JPG, JPEG, PNG, WEBP, PDF.
                 Maximum size: 5 MB.
-                Maximum 5 active
-                Attachments.
+                Maximum 5 active Attachments.
               </div>
 
-              {ticket.attachments.length >=
-                5 && (
+              {ticket.attachments.length >= 5 && (
                 <div className="alert alert-warning mt-3 mb-0">
-                  The maximum of 5 active
-                  Attachments has been
-                  reached.
+                  The maximum of 5 active Attachments
+                  has been reached.
                 </div>
               )}
 
@@ -883,9 +870,7 @@ export default function StaffTicketDetail({
                       </div>
 
                       <div>
-                        {
-                          selectedAttachmentFile.name
-                        }
+                        {selectedAttachmentFile.name}
                       </div>
 
                       <div className="small text-muted">
@@ -898,9 +883,7 @@ export default function StaffTicketDetail({
                     <button
                       type="button"
                       className="btn btn-success"
-                      disabled={
-                        uploadingAttachment
-                      }
+                      disabled={uploadingAttachment}
                       onClick={() =>
                         void handleAttachmentUpload()
                       }
@@ -914,68 +897,56 @@ export default function StaffTicketDetail({
               )}
             </div>
 
-            {ticket.attachments.length ===
-            0 ? (
+            {ticket.attachments.length === 0 ? (
               <p className="text-muted mb-0">
                 No active Attachments.
               </p>
             ) : (
               <div className="list-group list-group-flush">
-                {ticket.attachments.map(
-                  (attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="list-group-item px-0"
-                    >
-                      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
-                        <div className="text-break">
-                          <strong>
-                            {
-                              attachment.originalFilename
-                            }
-                          </strong>
+                {ticket.attachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="list-group-item px-0"
+                  >
+                    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                      <div className="text-break">
+                        <strong>
+                          {attachment.originalFilename}
+                        </strong>
 
-                          <div className="small text-muted mt-1">
-                            {
-                              attachment.mimeType
-                            }{" "}
-                            ·{" "}
-                            {formatFileSize(
-                              attachment.sizeBytes
-                            )}
-                          </div>
-
-                          <div className="small text-muted mt-1">
-                            Added:{" "}
-                            {dateTime(
-                              attachment.createdAt
-                            )}
-                          </div>
+                        <div className="small text-muted mt-1">
+                          {attachment.mimeType} ·{" "}
+                          {formatFileSize(
+                            attachment.sizeBytes
+                          )}
                         </div>
 
-                        <button
-                          type="button"
-                          className="btn btn-outline-success align-self-sm-center text-nowrap"
-                          disabled={
-                            saving !== "" ||
-                            uploadingAttachment
-                          }
-                          onClick={() =>
-                            void handleDownload(
-                              attachment.id,
-                              attachment.originalFilename
-                            )
-                          }
-                        >
-                          {saving ===
-                          `download-${attachment.id}`
-                            ? "Downloading..."
-                            : "Download"}
-                        </button>
+                        <div className="small text-muted mt-1">
+                          Added: {dateTime(attachment.createdAt)}
+                        </div>
                       </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-outline-success align-self-sm-center text-nowrap"
+                        disabled={
+                          saving !== "" ||
+                          uploadingAttachment
+                        }
+                        onClick={() =>
+                          void handleDownload(
+                            attachment.id,
+                            attachment.originalFilename
+                          )
+                        }
+                      >
+                        {saving === `download-${attachment.id}`
+                          ? "Downloading..."
+                          : "Download"}
+                      </button>
                     </div>
-                  )
-                )}
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -1009,37 +980,29 @@ export default function StaffTicketDetail({
                 className="form-select mb-2"
                 value={assigneeId}
                 onChange={(event) =>
-                  setAssigneeId(
-                    event.target.value
-                  )
+                  setAssigneeId(event.target.value)
                 }
               >
                 <option value="">
                   Select IT Staff
                 </option>
 
-                {assignees.map(
-                  (assignee) => (
-                    <option
-                      key={assignee.id}
-                      value={assignee.id}
-                    >
-                      {assignee.displayName}
-                    </option>
-                  )
-                )}
+                {assignees.map((assignee) => (
+                  <option
+                    key={assignee.id}
+                    value={assignee.id}
+                  >
+                    {assignee.displayName}
+                  </option>
+                ))}
               </select>
 
               {!ticket.assignedTo && (
                 <button
                   type="button"
                   className="btn btn-outline-success me-2"
-                  disabled={
-                    saving !== ""
-                  }
-                  onClick={() =>
-                    void handleClaim()
-                  }
+                  disabled={saving !== ""}
+                  onClick={() => void handleClaim()}
                 >
                   {saving === "claim"
                     ? "Claiming..."
@@ -1050,9 +1013,7 @@ export default function StaffTicketDetail({
               <button
                 type="submit"
                 className="btn btn-success"
-                disabled={
-                  saving !== ""
-                }
+                disabled={saving !== ""}
               >
                 {saving === "assignment"
                   ? "Saving..."
@@ -1078,29 +1039,24 @@ export default function StaffTicketDetail({
                   value={itPriority}
                   onChange={(event) =>
                     setITPriority(
-                      event.target
-                        .value as ITPriority
+                      event.target.value as ITPriority
                     )
                   }
                 >
-                  {priorities.map(
-                    (priority) => (
-                      <option
-                        key={priority}
-                        value={priority}
-                      >
-                        {priority}
-                      </option>
-                    )
-                  )}
+                  {priorities.map((priority) => (
+                    <option
+                      key={priority}
+                      value={priority}
+                    >
+                      {priority}
+                    </option>
+                  ))}
                 </select>
 
                 <button
                   type="submit"
                   className="btn btn-success text-nowrap"
-                  disabled={
-                    saving !== ""
-                  }
+                  disabled={saving !== ""}
                 >
                   {saving === "priority"
                     ? "Saving..."
@@ -1109,9 +1065,7 @@ export default function StaffTicketDetail({
               </div>
             </form>
 
-            <form
-              onSubmit={handleStatus}
-            >
+            <form onSubmit={handleStatus}>
               <label
                 htmlFor="staff-detail-status"
                 className="form-label"
@@ -1125,34 +1079,25 @@ export default function StaffTicketDetail({
                 value={nextStatus}
                 onChange={(event) =>
                   setNextStatus(
-                    event.target
-                      .value as
-                      | TicketStatus
-                      | ""
+                    event.target.value as TicketStatus | ""
                   )
                 }
-                disabled={
-                  permittedStatuses.length ===
-                  0
-                }
+                disabled={permittedStatuses.length === 0}
               >
                 <option value="">
-                  {permittedStatuses.length ===
-                  0
+                  {permittedStatuses.length === 0
                     ? "No permitted transition"
                     : "Choose next status"}
                 </option>
 
-                {permittedStatuses.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {statusLabel(item)}
-                    </option>
-                  )
-                )}
+                {permittedStatuses.map((item) => (
+                  <option
+                    key={item}
+                    value={item}
+                  >
+                    {statusLabel(item)}
+                  </option>
+                ))}
               </select>
 
               <label
@@ -1169,14 +1114,9 @@ export default function StaffTicketDetail({
                 maxLength={500}
                 value={statusReason}
                 onChange={(event) =>
-                  setStatusReason(
-                    event.target.value
-                  )
+                  setStatusReason(event.target.value)
                 }
-                disabled={
-                  permittedStatuses.length ===
-                  0
-                }
+                disabled={permittedStatuses.length === 0}
               />
 
               <button
@@ -1184,8 +1124,7 @@ export default function StaffTicketDetail({
                 className="btn btn-success"
                 disabled={
                   saving !== "" ||
-                  permittedStatuses.length ===
-                    0
+                  permittedStatuses.length === 0
                 }
               >
                 {saving === "status"
@@ -1208,50 +1147,39 @@ export default function StaffTicketDetail({
 
             <p className="small text-muted">
               Visible to IT Staff only.
-              Requesters cannot see these
-              notes.
+              Requesters cannot see these notes.
             </p>
 
-            {ticket.internalNotes.length ===
-            0 ? (
+            {ticket.internalNotes.length === 0 ? (
               <p className="text-muted">
                 No internal notes yet.
               </p>
             ) : (
               <div className="list-group list-group-flush mb-3">
-                {ticket.internalNotes.map(
-                  (note) => (
-                    <div
-                      key={note.id}
-                      className="list-group-item px-0"
-                    >
-                      <div className="d-flex justify-content-between gap-2">
-                        <strong>
-                          {
-                            note.author
-                              .displayName
-                          }
-                        </strong>
+                {ticket.internalNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="list-group-item px-0"
+                  >
+                    <div className="d-flex justify-content-between gap-2">
+                      <strong>
+                        {note.author.displayName}
+                      </strong>
 
-                        <span className="small text-muted">
-                          {dateTime(
-                            note.createdAt
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="text-break mt-1">
-                        {note.body}
-                      </div>
+                      <span className="small text-muted">
+                        {dateTime(note.createdAt)}
+                      </span>
                     </div>
-                  )
-                )}
+
+                    <div className="text-break mt-1">
+                      {note.body}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            <form
-              onSubmit={handleNote}
-            >
+            <form onSubmit={handleNote}>
               <label
                 htmlFor="internal-note"
                 className="form-label"
@@ -1266,9 +1194,7 @@ export default function StaffTicketDetail({
                 maxLength={2000}
                 value={noteBody}
                 onChange={(event) =>
-                  setNoteBody(
-                    event.target.value
-                  )
+                  setNoteBody(event.target.value)
                 }
                 required
               />
@@ -1276,9 +1202,7 @@ export default function StaffTicketDetail({
               <button
                 type="submit"
                 className="btn btn-success"
-                disabled={
-                  saving !== ""
-                }
+                disabled={saving !== ""}
               >
                 {saving === "note"
                   ? "Saving..."
@@ -1287,8 +1211,10 @@ export default function StaffTicketDetail({
             </form>
           </section>
 
+          {/* Existing Lab 3 TicketAction history.
+              Keep this separate from Lab 4 ActionsTaken. */}
           <section
-            className="zen-section p-3"
+            className="zen-section p-3 mb-4"
             aria-labelledby="actions-title"
           >
             <h3
@@ -1298,55 +1224,42 @@ export default function StaffTicketDetail({
               Actions and History
             </h3>
 
-            {ticket.actions.length ===
-            0 ? (
+            {ticket.actions.length === 0 ? (
               <p className="text-muted">
                 No actions recorded yet.
               </p>
             ) : (
               <div className="list-group list-group-flush mb-3">
-                {ticket.actions.map(
-                  (action) => (
-                    <div
-                      key={action.id}
-                      className="list-group-item px-0"
-                    >
-                      <div className="d-flex justify-content-between gap-2">
-                        <strong>
-                          {action.actionType
-                            .replace(
-                              /([A-Z])/g,
-                              " $1"
-                            )
-                            .trim()}
-                        </strong>
+                {ticket.actions.map((action) => (
+                  <div
+                    key={action.id}
+                    className="list-group-item px-0"
+                  >
+                    <div className="d-flex justify-content-between gap-2">
+                      <strong>
+                        {action.actionType
+                          .replace(/([A-Z])/g, " $1")
+                          .trim()}
+                      </strong>
 
-                        <span className="small text-muted">
-                          {dateTime(
-                            action.createdAt
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="small text-muted">
-                        {
-                          action.actor
-                            .displayName
-                        }
-                      </div>
-
-                      <div className="text-break mt-1">
-                        {action.body}
-                      </div>
+                      <span className="small text-muted">
+                        {dateTime(action.createdAt)}
+                      </span>
                     </div>
-                  )
-                )}
+
+                    <div className="small text-muted">
+                      {action.actor.displayName}
+                    </div>
+
+                    <div className="text-break mt-1">
+                      {action.body}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            <form
-              onSubmit={handleAction}
-            >
+            <form onSubmit={handleAction}>
               <label
                 htmlFor="action-taken"
                 className="form-label"
@@ -1361,9 +1274,7 @@ export default function StaffTicketDetail({
                 maxLength={2000}
                 value={actionBody}
                 onChange={(event) =>
-                  setActionBody(
-                    event.target.value
-                  )
+                  setActionBody(event.target.value)
                 }
                 required
               />
@@ -1371,9 +1282,7 @@ export default function StaffTicketDetail({
               <button
                 type="submit"
                 className="btn btn-success"
-                disabled={
-                  saving !== ""
-                }
+                disabled={saving !== ""}
               >
                 {saving === "action"
                   ? "Saving..."
@@ -1381,6 +1290,12 @@ export default function StaffTicketDetail({
               </button>
             </form>
           </section>
+
+          {/* Lab 4 - Structured Actions Taken */}
+          <ActionsTakenSection
+            ticketId={ticketId}
+            editable
+          />
         </div>
       </div>
     </section>
