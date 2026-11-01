@@ -118,10 +118,6 @@ Each card must have an accessible label and a useful destination.
 Show a concise list of recent or attention-required Tickets.
 Include enough information to identify each Ticket and its current status.
 
-For Requesters, attention-required means a Ticket in the existing
-`WaitingForRequester` status. This display does not introduce a new status or
-change Ticket workflow rules.
-
 Selecting an item opens the appropriate Ticket Detail screen.
 
 All information must belong to the authenticated Requester.
