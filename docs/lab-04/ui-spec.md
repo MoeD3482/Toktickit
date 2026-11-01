@@ -190,15 +190,15 @@ Do not expose stack traces, secrets or private data in user-facing errors.
 
 ## 11. UI Acceptance Checklist
 
-- [ ] Actions Taken list supports zero, one and multiple records.
-- [ ] Authorized staff can create and edit actions.
-- [ ] Requesters see a read-only list for their own Tickets.
-- [ ] Follow-up validation is clear.
-- [ ] Ticket workflow controls reflect approved transitions.
-- [ ] Requester Dashboard displays the approved metrics.
-- [ ] IT Staff Dashboard displays the approved operational metrics.
-- [ ] Metric cards navigate to the correct detailed view.
-- [ ] Loading, empty, success and error states are consistent.
-- [ ] Desktop, tablet and mobile are usable.
-- [ ] Keyboard focus and field labels are accessible.
-- [ ] Zen Green design consistency is maintained.
+- [x] Actions Taken list supports zero, one and multiple records.
+- [x] Authorized staff can create and edit actions.
+- [x] Requesters see a read-only list for their own Tickets.
+- [x] Follow-up validation is clear.
+- [x] Ticket workflow controls reflect approved transitions.
+- [x] Requester Dashboard displays the approved metrics.
+- [x] IT Staff Dashboard displays the approved operational metrics.
+- [x] Metric cards navigate to the correct detailed view.
+- [x] Loading, empty, success and error states are consistent.
+- [x] Desktop, tablet and mobile are usable.
+- [x] Keyboard focus and field labels are accessible.
+- [x] Zen Green design consistency is maintained.
