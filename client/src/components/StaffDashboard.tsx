@@ -64,7 +64,6 @@ function TicketList({
                   type="button"
                   className="btn btn-link text-start text-decoration-none p-0 w-100"
                   onClick={() => onSelectTicket(ticket.id)}
-                  aria-label={`Open Ticket ${ticket.ticketNo}: ${ticket.summary}`}
                 >
                   <span className="d-flex flex-column flex-sm-row justify-content-between gap-2">
                     <span>
@@ -220,7 +219,6 @@ export default function StaffDashboard({
                   card.label
                 )
               }
-              aria-label={`View ${card.label}: ${card.value}`}
             >
               <span className="card-body d-block p-4">
                 <span className="d-block text-muted small mb-2">

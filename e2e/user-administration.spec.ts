@@ -2,48 +2,15 @@ import { test, expect, Page } from "@playwright/test";
 
 async function loginAsAdmin(page: Page) {
   await page.goto("/");
-
-  const email = "admin@example.com";
-  const tempPassword = "ChangeMe123!";
-  const stablePassword = "NewPass123";
-
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(stablePassword);
+  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Password").fill("NewPass123");
   await page.getByRole("button", { name: "Sign In" }).click();
-
-  try {
-    await expect(
-      page.getByRole("heading", { name: "User Management" })
-    ).toBeVisible({ timeout: 3000 });
-
-    return;
-  } catch {
-    // Try temporary password.
-  }
-
-  await page.getByLabel("Password").fill(tempPassword);
-  await page.getByRole("button", { name: "Sign In" }).click();
-
-  const changePasswordHeading = page.getByRole("heading", {
-    name: "Change Password",
+  const dashboardButton = page.getByRole("button", {
+    name: "Staff Dashboard",
   });
-
-  try {
-    await expect(changePasswordHeading).toBeVisible({ timeout: 5000 });
-
-    await page.getByLabel("Current Password").fill(tempPassword);
-    await page.getByLabel("New Password").fill(stablePassword);
-    await page.getByLabel("Confirm Password").fill(stablePassword);
-    await page.getByRole("button", { name: "Change Password" }).click();
-  } catch {
-    // Password was already changed.
-  }
-
-  await expect(
-    page.getByRole("heading", { name: "User Management" })
-  ).toBeVisible();
+  await expect(dashboardButton).toBeVisible({ timeout: 15000 });
+  await page.getByRole("button", { name: "User Management" }).click();
 }
-
 test("E2E-08 Administrator opens user management and filters users", async ({
   page,
 }) => {

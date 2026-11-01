@@ -83,7 +83,6 @@ function TicketList({
                   type="button"
                   className="btn btn-link text-start text-decoration-none p-0 w-100"
                   onClick={() => onSelectTicket(ticket.id)}
-                  aria-label={`Open Ticket ${ticket.ticketNo}: ${ticket.summary}`}
                 >
                   <span className="d-flex flex-column flex-sm-row justify-content-between gap-2">
                     <span>
@@ -239,7 +238,6 @@ export default function RequesterDashboard({
               type="button"
               className="card shadow-sm h-100 w-100 text-start border-success-subtle dashboard-metric-card"
               onClick={() => onShowTickets(card.query, card.destination)}
-              aria-label={`View ${card.destination}: ${card.value}`}
             >
               <span className="card-body d-block p-4">
                 <span className="d-block text-muted small mb-2">{card.label}</span>
