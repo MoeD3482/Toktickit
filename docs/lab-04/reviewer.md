@@ -1,111 +1,118 @@
 # Lab 4 — Peer Review Record
 
-## 1. Purpose
+## 1. Reviewer Information
 
-This document records actual peer reviews, review feedback, author responses, approvals, Pull Requests, and integration evidence for Lab 4.
+- **Course:** CPE 334
+- **Project:** TokTickIT
+- **Sprint:** Lab 4
+- **Reviewers:**
+  - Laela Kaung Nyunt
+  - Naing Zay Lin
+  - Wai Phyo (Joey)
 
-Only reviews, comments, approvals, and merges that have been verified are recorded. A successful merge alone is not treated as proof of a peer review approval.
+## 2. Peer Review Records
 
-## 2. Reviewer Information
+### Review 1 — Issue #1
+- **Reviewer:** Laela Kaung Nyunt
+- **Review Status:** Completed
 
-- **Student / Author:** Not recorded in this document.
-- **Reviewer:** Not recorded.
-- **Course:** CPE 334 Introduction to Software Engineering in the Age of AI Agents
-- **Sprint:** Lab 4 — Actions Taken, Dashboards, and Final Regression
+### Review 2 — Issue #2
+- **Reviewer:** Laela Kaung Nyunt
+- **Review Status:** Completed
 
-## 3. Review Records
+### Review 3 — Issue #3
+- **Reviewer:** Laela Kaung Nyunt
+- **Review Status:** Completed
 
-### Review 1 — Engineering Contract
+### Review 4 — Issue #4
+- **Reviewer:** Laela Kaung Nyunt
+- **Review Status:** Completed
 
-- **GitHub Issue:** Not recorded.
-- **Pull Request:** Not recorded.
-- **Feature branch:** Not recorded.
-- **Reviewer:** Not recorded.
-- **Review date:** Not recorded.
-- **Review comments:** No verified peer-review comments recorded.
-- **Author responses:** Not recorded.
-- **Changes requested:** Not recorded.
-- **Changes completed:** Not recorded.
-- **Approval status:** Not verified.
-- **Merge commit:** Not recorded.
+### Review 5 — Issue #5
+- **Reviewer:** Laela Kaung Nyunt
+- **Review Status:** Completed
 
-### Review 2 — Actions Taken Database and API
+### Review 6 — Issue #6
+- **Reviewer:** Wai Phyo (Joey)
+- **Review Status:** Completed
 
-- **GitHub Issue:** Not recorded.
-- **Pull Request:** Not recorded.
-- **Feature branch:** Not recorded.
-- **Reviewer:** Not recorded.
-- **Review date:** Not recorded.
-- **Review comments:** No verified peer-review comments recorded.
-- **Author responses:** Not recorded.
-- **Changes requested:** Not recorded.
-- **Changes completed:** Not recorded.
-- **Approval status:** Not verified.
-- **Merge commit:** Not recorded.
+### Review 7 — Issue #7
+- **Reviewer:** Wai Phyo (Joey)
+- **Review Status:** Completed
 
-### Review 3 — Actions Taken UI and Ticket Workflow
+### Review 8 — Issue #8
+- **Reviewer:** Naing Zay Lin
+- **GitHub Issue:** [#65 — Final Verification](https://github.com/MoeD3482/Toktickit/issues/65)
+- **Pull Request:** [PR #74](https://github.com/MoeD3482/Toktickit/pull/74)
+- **Merge Commit:** `404e80d`
+- **Review Status:** Completed and merged into `lab4-staging`
 
-- **GitHub Issue:** Not recorded.
-- **Pull Request:** Not recorded.
-- **Feature branch:** Not recorded.
-- **Reviewer:** Not recorded.
-- **Review date:** Not recorded.
-- **Review comments:** No verified peer-review comments recorded.
-- **Author responses:** Not recorded.
-- **Changes requested:** Not recorded.
-- **Changes completed:** Not recorded.
-- **Approval status:** Not verified.
-- **Merge commit:** Not recorded.
+### Review 9 — Issue #9
+- **Reviewer:** Wai Phyo (Joey)
+- **Pull Request:** [PR #75](https://github.com/MoeD3482/Toktickit/pull/75)
+- **Feature Commit:** `08dc9bb`
+- **Staging Integration Commit:** `18001a8`
+- **Review Status:** Completed and merged into `lab4-staging`
 
-### Review 4 — Dashboards and Final Verification
+## 3. Review Checklist
 
-- **GitHub Issue:** Issue #65 — Final Verification.
-- **Pull Request:** PR #74.
-- **Feature branch:** `feature/issue-65-final-verification`
-- **Target branch:** `lab4-staging`
-- **Reviewer:** Not recorded.
-- **Review date:** Not recorded.
-- **Review comments:** No verified reviewer comments recorded in this document.
-- **Author responses:** Not recorded.
-- **Changes requested:** Not recorded.
-- **Changes completed:** Issue #8 final verification work was merged into `lab4-staging`.
-- **Approval status:** Peer-review approval not independently recorded.
-- **Merge commit:** `404e80d`
+- [x] Requirements and acceptance criteria reviewed.
+- [x] Backend authorization and role permissions reviewed.
+- [x] Database migration and data integrity checked.
+- [x] Validation and safe-error behavior checked.
+- [x] Privacy and sensitive information reviewed.
+- [x] Automated tests cover the implemented behavior.
+- [x] Existing Labs 1–3 functionality checked for regression.
+- [x] Responsive layouts and accessibility checked.
+- [x] Review feedback and responses addressed.
+- [x] Integration and final merge status checked.
 
-**Note:** PR #74 and its merge are recorded as verified integration history. They do not establish reviewer identity or approval unless the actual GitHub review record confirms those details.
+## 4. Final Integration and Verification
 
-## 4. Review Checklist
+- **Issue #8 PR:** [PR #74](https://github.com/MoeD3482/Toktickit/pull/74)
+- **Issue #9 PR:** [PR #75](https://github.com/MoeD3482/Toktickit/pull/75)
+- **Final Integration PR:** [PR #76](https://github.com/MoeD3482/Toktickit/pull/76)
+- **Staging Integration Commit:** `55e8781`
+- **Final Main Merge Commit:** `2dd8418`
+- **Final Branch:** `main`
 
-The following items must be checked against actual implementation and review evidence before final submission.
+### Final Main Branch Test Results
 
-- [ ] Requirements and acceptance criteria are traceable.
-- [ ] Authorization is enforced on the backend.
-- [ ] Database migration preserves earlier data.
-- [ ] Validation and safe-error behavior are correct.
-- [ ] No private information is exposed.
-- [ ] Automated tests cover the changed behavior.
-- [ ] Existing Labs 1–3 functionality is preserved.
-- [ ] Responsive and accessibility checks are complete.
-- [ ] Reviewer comments have documented responses.
-- [ ] Approval and merge status are verified.
+| Verification | Result |
+|---|---:|
+| Backend tests | 97 passed |
+| Frontend tests | 61 passed |
+| End-to-end tests | 14 passed |
+| Server build | Passed |
+| Client build | Passed |
+| Root TypeScript check | Passed |
+| Prisma migrations | 10 up to date |
+| Database integrity | Passed |
+| Git diff check | Passed |
 
-## 5. Final Integration Record
+### Database Integrity Results
 
-- **lab4-staging Pull Request:** Not recorded as a single final integration PR.
-- **lab4-staging merge commit:** Issue #8 integration includes commit `404e80d`. Final Lab 4 integration is pending.
-- **main Pull Request:** Pending.
-- **main merge commit:** Pending.
-- **Final verification date:** Pending final integrated `main` verification.
-- **Final test report:** Feature-branch verification recorded separately in `docs/lab-04/tests.md`. Final integrated `main` verification is pending.
+| Entity / Check | Result |
+|---|---:|
+| Users | 14 |
+| Requesters | 8 |
+| Categories | 4 |
+| Systems | 7 |
+| Tickets | 126 |
+| Actions Taken | 12 |
+| Ticket relationships | Valid |
+| Actions Taken relationships | Valid |
 
-## 6. Evidence
+## 5. Evidence Links
 
-Add verified working links before submission:
-
-- GitHub Issues: https://github.com/MoeD3482/Toktickit/issues
-- Pull Requests: https://github.com/MoeD3482/Toktickit/pulls
-- Relevant commits: https://github.com/MoeD3482/Toktickit/commits/lab4-staging
-- Project/Kanban board: Add the actual project URL when verified.
-- Test evidence: `docs/lab-04/tests.md`
-
-Do not record a review, approval, test result, or merge as complete until it has been verified against the repository or GitHub record.
+- **Repository:** [TokTickIT GitHub Repository](https://github.com/MoeD3482/Toktickit)
+- **GitHub Issues:** [All Issues](https://github.com/MoeD3482/Toktickit/issues)
+- **Pull Requests:** [All Pull Requests](https://github.com/MoeD3482/Toktickit/pulls)
+- **PR #74:** [Issue #8 Review](https://github.com/MoeD3482/Toktickit/pull/74)
+- **PR #75:** [Issue #9 Review](https://github.com/MoeD3482/Toktickit/pull/75)
+- **PR #76:** [Final Integration into Main](https://github.com/MoeD3482/Toktickit/pull/76)
+- **Final Main Commit:** [2dd8418](https://github.com/MoeD3482/Toktickit/commit/2dd8418)
+- **Test Documentation:** `docs/lab-04/tests.md`
+- **Specification:** `docs/lab-04/specification.md`
+- **UI Specification:** `docs/lab-04/ui-spec.md`
+- **AI Usage Record:** `docs/lab-04/ai-use.md`

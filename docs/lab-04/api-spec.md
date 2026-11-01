@@ -349,16 +349,18 @@ Do not change existing behavior unless required by an approved Lab 4 requirement
 
 ## 10. API Acceptance Checklist
 
-- [ ] Actions Taken list, create, and update contracts are implemented.
-- [ ] Authenticated performer identity is enforced by the server.
-- [ ] Requester read-only permissions are enforced.
-- [ ] Required fields and follow-up rules are validated.
-- [ ] Idempotency prevents duplicate Action Taken creation on retry.
-- [ ] Ticket workflow and resolution checks are server-enforced.
-- [ ] Stale updates are detected or safely handled.
-- [ ] Requester Dashboard metrics are ownership-scoped.
-- [ ] Staff Dashboard metrics match database queries.
-- [ ] Error responses are safe and consistent.
-- [ ] API and regression tests pass.
-ျ
+- [x] Actions Taken list, create, and update contracts are implemented.
+- [x] Authenticated performer identity is enforced by the server.
+- [x] Requester read-only permissions are enforced.
+- [x] Required fields and follow-up rules are validated.
+- [x] Idempotency prevents duplicate Action Taken creation on retry.
+- [x] Ticket workflow and resolution checks are server-enforced.
+- [x] Stale updates are detected or safely handled.
+- [x] Requester Dashboard metrics are ownership-scoped.
+- [x] Staff Dashboard metrics match database queries.
+- [x] Error responses are safe and consistent.
+- [x] API and regression tests pass.
+
+
+
 **Implementation note:** This specification is a contract, not proof that every proposed behavior has been implemented. Confirm actual routes, response shapes, status codes, concurrency behavior, and tests against the source code before marking an item complete.
