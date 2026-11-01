@@ -1,267 +1,312 @@
-# TokTickIT - IT Service Desk Application
+# TokTickIT — IT Service Desk Application
 
-TokTickIT is a full-stack IT service desk application for managing Account & Access, Hardware, Software, and Network service requests.
+TokTickIT is a full-stack IT service desk application developed for the CPE 334 Software Engineering course. It manages IT service requests across Account & Access, Hardware, Software, and Network categories.
 
-## 🏗️ Technology Stack
+The application supports Requesters, IT Staff, and Administrators through role-based workflows for ticket creation, ticket management, Actions Taken, dashboards, and user administration.
 
-* **Frontend:** React, TypeScript, Vite, Bootstrap 5
-* **Backend:** Node.js, Express, TypeScript
-* **Database & ORM:** PostgreSQL, Prisma ORM
-* **Testing:** Vitest, Supertest, React Testing Library, Playwright
+## Technology Stack
 
----
+- **Frontend:** React 18, TypeScript, Vite, Bootstrap 5
+- **Backend:** Node.js, Express, TypeScript
+- **Database:** PostgreSQL
+- **ORM:** Prisma 5.22.0
+- **Testing:** Vitest, Supertest, React Testing Library, Playwright
+- **Accessibility:** axe-core with Playwright
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 toktickit/
-
-├── client/                 # React + TypeScript + Vite frontend
-│   ├── src/                # Frontend source code
-│   └── tests/              # Client tests
-│
-├── server/                 # Express + Node.js + TypeScript + Prisma backend
-│   ├── prisma/             # Prisma schema, migrations, and seed scripts
-│   ├── src/                # Express server source code
-│   └── tests/              # API integration tests
-│       ├── lab-01/         # Lab 1 tests
-│       ├── lab-02/         # Lab 2 tests
-│       └── lab-03/         # Lab 3 API tests
-│
-├── e2e/                    # Playwright end-to-end tests
-│   └── lab-03/             # Lab 3 E2E tests
-│
-├── docs/                   # Lab documentation
+├── client/
+│   ├── src/
+│   │   ├── components/
+│   │   └── ...
+│   └── tests/
+│       └── lab-04/
+├── server/
+│   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   ├── seed.ts
+│   │   ├── seed-lab4.ts
+│   │   └── verify-lab4-integrity.ts
+│   ├── src/
+│   └── tests/
+│       └── lab-04/
+├── e2e/
+│   └── lab-04/
+├── docs/
 │   ├── lab-01/
 │   ├── lab-02/
-│   └── lab-03/
+│   ├── lab-03/
+│   └── lab-04/
 │       ├── specification.md
+│       ├── api-spec.md
 │       ├── tests.md
 │       ├── ui-spec.md
-│       ├── api-spec.md
 │       ├── reviewer.md
 │       └── ai-use.md
-│
-├── artifacts/              # Verification and screenshot evidence
-│   └── lab-03/
+├── artifacts/
+│   └── lab-04/
 │       └── screenshots/
-│
-├── .gitignore              # Git ignore settings
-└── README.md               # Project documentation
+├── .gitignore
+├── package.json
+└── README.md
 ```
 
----
+## Prerequisites
 
-## 🚀 Getting Started
+- Node.js 18 or later
+- npm 9 or later
+- PostgreSQL 14 or later
+- Git
 
-### Prerequisites
+## Installation and Environment Setup
 
-* **Node.js:** v18+ or v20+
-* **PostgreSQL:** v14+ running locally
-* **npm:** v9+
+Clone the repository and enter the project directory:
 
-### Environment Setup
+```bash
+git clone https://github.com/MoeD3482/Toktickit.git
+cd Toktickit
+```
 
-1. Create the local `.env` files from the provided `.env.example` files.
+Install root dependencies:
 
-2. Configure `DATABASE_URL` in `server/.env` with your PostgreSQL credentials:
+```bash
+npm install
+```
+
+Install backend dependencies:
+
+```bash
+cd server
+npm install
+```
+
+Install frontend dependencies:
+
+```bash
+cd ../client
+npm install
+cd ..
+```
+
+### Backend Environment
+
+Create `server/.env` using `server/.env.example` as a template:
 
 ```env
-DATABASE_URL="postgresql://username:password@localhost:5432/toktickit?schema=public"
-
+DATABASE_URL="postgresql://toktickit:toktickit@localhost:5432/toktickit?schema=public"
 PORT=3000
 ```
 
-3. Configure the frontend API URL if required:
+Update the database connection string to match your local PostgreSQL configuration.
+
+### Frontend Environment
+
+Create `client/.env` using `client/.env.example`:
 
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_URL="http://localhost:3000"
 ```
 
-> Do not commit `.env` files because they may contain database credentials or other secrets.
+Do not commit real `.env` files or credentials.
 
----
+## Database Setup
 
-## 🗄️ Database Setup
-
-TokTickIT uses **PostgreSQL** as the database and **Prisma ORM** for database access and schema management.
-
-Go to the server directory:
-
-```bash
-cd server
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Generate the Prisma Client:
-
-```bash
-npx prisma generate
-```
-
-Apply the database migration:
-
-```bash
-npx prisma migrate dev
-```
-
-Seed the database:
-
-```bash
-npx prisma db seed
-```
-
-The database is seeded with four IT request categories:
-
-1. Account and Access
-2. Hardware
-3. Software
-4. Network
-
----
-
-## 📦 Installation & Setup
-
-### 1. Backend Setup (`/server`)
-
-```bash
-cd server
-npm install
-npx prisma generate
-```
-
-To run the backend development server:
-
-```bash
-npm run dev
-```
-
-The backend runs on:
-
-```text
-http://localhost:3000
-```
-
-### 2. Frontend Setup (`/client`)
-
-```bash
-cd client
-npm install
-```
-
-To run the frontend development server:
-
-```bash
-npm run dev
-```
-
-The frontend normally runs on:
-
-```text
-http://localhost:5173
-```
-
----
-
-## 🔌 API Endpoints
-
-### Health Check
-
-```text
-GET /api/health
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok",
-  "service": "TokTickIT API"
-}
-```
-
-### Category List
-
-```text
-GET /api/categories
-```
-
-Expected response:
-
-```json
-[
-  { "id": 1, "name": "Account and Access" },
-  { "id": 2, "name": "Hardware" },
-  { "id": 3, "name": "Software" },
-  { "id": 4, "name": "Network" }
-]
-```
-
----
-
-# 🧪 Testing & Verification
-
-## Backend Tests
+Create the PostgreSQL database before running the migrations.
 
 From the `server` directory:
 
 ```bash
 cd server
+npx prisma generate
+npx prisma migrate dev --schema prisma/schema.prisma
+```
+
+Run the standard seed command:
+
+```bash
+npm run prisma:seed
+```
+
+The standard seed script is `prisma/seed.ts`.
+
+The Lab 4 seed fixture is maintained separately in:
+
+```text
+server/prisma/seed-lab4.ts
+```
+
+The read-only Lab 4 database integrity verification script is:
+
+```text
+server/prisma/verify-lab4-integrity.ts
+```
+
+To check migration status:
+
+```bash
+npx prisma migrate status --schema prisma/schema.prisma
+```
+
+## Running the Application
+
+Open two terminals from the project root.
+
+### Backend
+
+```bash
+cd server
+npm run dev
+```
+
+Backend development URL:
+
+```text
+http://localhost:3000
+```
+
+### Frontend
+
+```bash
+cd client
+npm run dev
+```
+
+Frontend development URL:
+
+```text
+http://localhost:5173
+```
+
+Open the frontend URL in a browser to use the application.
+
+## Application Features
+
+### Lab 1 — Project Foundation
+
+- System health check.
+- API connectivity verification.
+- IT service request category retrieval.
+- Loading and safe error feedback.
+
+### Lab 2 — Ticket Management
+
+- Ticket creation and validation.
+- Requester ticket listing.
+- Ticket detail viewing.
+- Public comments.
+- Attachment upload and management.
+- Safe handling of failed requests.
+
+### Lab 3 — Authentication, Authorization, and Administration
+
+- Login and logout.
+- Inactive account protection.
+- First-login password change.
+- Role-based access control.
+- Requester ticket workflows.
+- IT Staff ticket queue and ticket management.
+- Public comments and private internal notes.
+- Administrator user listing, creation, editing, activation, and deactivation.
+- Protection against self-deactivation and removal of the last active Administrator.
+
+Application roles:
+
+- Requester
+- IT Staff
+- Administrator
+
+### Lab 4 — Actions Taken, Ticket Workflow, and Dashboards
+
+**Actions Taken**
+
+- Record multiple Actions Taken for a Ticket.
+- Derive the performer from the authenticated user.
+- Validate action details and follow-up requirements.
+- Display Actions Taken to Requesters as read-only information.
+- Support permitted editing without hard deletion.
+
+**Ticket Workflow**
+
+- Enforce permitted status transitions.
+- Reject invalid transitions.
+- Apply resolution requirements before resolving Tickets.
+- Handle stale updates and conflicts safely.
+- Keep Requester feedback separate from automatic Ticket status changes.
+
+**Requester Dashboard**
+
+- Display open Tickets.
+- Display Tickets waiting for the Requester.
+- Display recently updated and recently resolved Tickets.
+- Provide navigation from dashboard metrics and Ticket summaries to Ticket details.
+- Restrict dashboard information to the authenticated Requester.
+
+**IT Staff Dashboard**
+
+- Display unassigned Tickets.
+- Display Tickets owned by the current Staff user.
+- Summarize Ticket status and IT Priority.
+- Show recent and urgent Tickets.
+- Provide navigation to Ticket details and relevant queue views.
+
+## UI and Responsive Design
+
+The application follows the existing **Zen Green** design language.
+
+The UI supports desktop, tablet, and mobile layouts. Lab 4 verification includes screenshots at:
+
+- Desktop: 1440 × 900
+- Tablet: 768 × 1024
+- Mobile: 375 × 812
+
+Screenshots are stored under:
+
+```text
+artifacts/lab-04/screenshots/
+```
+
+The UI specification is documented in:
+
+```text
+docs/lab-04/ui-spec.md
+```
+
+Automated accessibility checks use axe-core and Playwright. These checks cover selected pages and do not represent a complete manual WCAG audit of every screen.
+
+## Testing and Verification
+
+Run commands from the appropriate directory.
+
+### Backend Tests
+
+```bash
+cd server
 npm test
 ```
 
-The backend test suite covers Lab 1, Lab 2, and Lab 3 functionality, including:
+Latest recorded result:
 
-* Health check
-* Categories
-* Ticket creation
-* Ticket details
-* My Tickets
-* Requesters
-* Attachments
-* Authentication
-* Authorization
-* Comments and internal notes
-* IT Staff ticket queue
-* IT Staff ticket actions
-* IT Staff ticket details
-* Administrator user management
+- 20 test files passed.
+- 97 tests passed.
+- 0 failures.
 
-### Final Backend Verification
-
-```text
-15 test files passed
-57 tests passed
-```
-
----
-
-## Frontend Tests
-
-From the `client` directory:
+### Frontend Tests
 
 ```bash
 cd client
 npm test
 ```
 
-The frontend tests verify application behavior including authentication, password change, IT Staff workflows, Administrator user management, and other Lab 3 UI functionality.
+Latest recorded result:
 
-### Final Frontend Verification
+- 16 test files passed.
+- 61 tests passed.
+- 0 failures.
 
-```text
-12 test files passed
-38 tests passed
-```
-
----
-
-## End-to-End Tests
+### End-to-End Tests
 
 From the project root:
 
@@ -269,304 +314,115 @@ From the project root:
 npm run test:e2e
 ```
 
-The Playwright end-to-end tests verify complete user workflows including:
+Latest recorded result:
 
-* Authentication login/logout
-* Invalid login handling
-* Attachment lifecycle
-* Requester ticket creation and My Tickets
-* IT Staff queue and filtering
-* IT Staff ticket controls
-* Administrator user management
-* Administrator user creation
+- 14 Playwright tests passed.
+- 0 failures.
 
-### Final E2E Verification
+To run the E2E tests with a visible browser:
 
-```text
-8/8 tests passed
+```bash
+npm run test:e2e:headed
 ```
 
----
+### Production Builds
 
-## Build Verification
-
-### Build Server
+Backend:
 
 ```bash
 cd server
 npm run build
 ```
 
-### Build Client
+Frontend:
 
 ```bash
 cd client
 npm run build
 ```
 
-Both server and client production builds passed during final Lab 3 verification.
+### Additional Verification
 
----
+From the project root:
 
-# 🔐 Lab 3 Features
-
-Lab 3 extends TokTickIT with authentication, authorization, IT Staff workflows, Administrator management, automated verification, and responsive UI improvements.
-
-## Authentication
-
-The application supports:
-
-* User login
-* Invalid login handling
-* Inactive account protection
-* Logout
-* Session protection
-* First-login password change
-* Safe authentication failure messages
-
-Users with an initial password are required to change their password before accessing protected application features.
-
----
-
-## Authorization
-
-TokTickIT uses role-based access control with the following application roles:
-
-* **Requester**
-* **IT Staff**
-* **Administrator**
-
-Protected API routes and UI workflows verify the user's role before allowing restricted operations.
-
-Authorization is enforced at the API level as well as through the frontend UI.
-
----
-
-## Requester Features
-
-Requesters can:
-
-* Create tickets
-* View their tickets
-* Open ticket details
-* Add public comments
-* Upload and manage supported attachments
-* Use the requester ticket workflow
-* Indicate when a problem appears resolved where permitted
-
-Existing requester functionality was also regression-tested during Lab 3 verification.
-
----
-
-## IT Staff Features
-
-IT Staff can access the staff ticket queue and ticket details.
-
-The IT Staff workflow supports:
-
-* Ticket queue viewing
-* Search and filtering
-* Ticket ownership
-* Claiming tickets
-* Reassigning tickets
-* IT priority management
-* Permitted status changes
-* Public comments
-* Internal notes
-* Attachment handling
-* Ticket detail viewing
-
-Role-based authorization prevents users without the required permissions from performing restricted IT Staff actions.
-
----
-
-## Administrator Features
-
-Administrators can manage application users.
-
-Administrator user management supports:
-
-* User listing
-* Name and email search
-* Role filtering
-* User creation
-* Duplicate email validation
-* User editing
-* Role management
-* Active/inactive state management
-* Initial password assignment
-
-Security rules also protect administrator accounts:
-
-* Users have exactly one application role.
-* Non-Administrators cannot access administrator user management.
-* An Administrator cannot deactivate their own account.
-* The last active Administrator cannot be removed or deactivated.
-* Users with an initial password must change it during their next login.
-
----
-
-# 🎨 UI and Responsive Design
-
-Lab 3 uses a consistent **Zen Green** visual design across the main application workflows.
-
-The UI includes responsive behavior for:
-
-* Desktop screens
-* Tablet screens
-* Mobile screens
-
-The main Lab 3 interfaces include:
-
-* Login
-* Change Password
-* IT Staff Ticket Queue
-* IT Staff Ticket Detail
-* Administrator User Management
-
-The UI specification is documented in:
-
-```text
-docs/lab-03/ui-spec.md
+```bash
+npx tsc --noEmit
+git diff --check
 ```
 
----
+From the `server` directory:
 
-# 📚 Lab 3 Documentation
-
-The Lab 3 documentation is stored in:
-
-```text
-docs/lab-03/
+```bash
+npx prisma migrate status --schema prisma/schema.prisma
+npx tsx prisma/verify-lab4-integrity.ts
 ```
 
-The documentation includes:
+Refer to `docs/lab-04/tests.md` for the detailed test plan, test file paths, acceptance-criterion traceability, verification results, and known limitations.
 
-* `specification.md` - Functional requirements, business rules, authorization matrix, acceptance criteria, migration decisions, and Definition of Done
-* `tests.md` - Planned tests, acceptance-criteria traceability, test paths, and final verification status
-* `ui-spec.md` - UI and responsive design specification
-* `api-spec.md` - API and authorization contracts
-* `reviewer.md` - Pull request and peer review record
-* `ai-use.md` - AI tool usage and reflection
+## Git Engineering Workflow
 
----
-
-# 🌿 Git Engineering Workflow
-
-Lab 3 was developed using feature branches and pull requests.
-
-The work was organized through:
+The intended integration workflow is:
 
 ```text
 Feature Branches
-      ↓
-lab3-staging
-      ↓
-main
+       |
+       v
+  lab4-staging
+       |
+       v
+      main
 ```
 
-The Lab 3 implementation was completed through Issues #1-#9 and the corresponding merged pull requests:
+Work is organized through GitHub Issues and feature branches. Changes are reviewed through Pull Requests before integration into the staging branch and final `main` branch.
+
+The final repository history, reviewer records, and merge evidence should be verified against the actual GitHub repository before submission.
+
+## Documentation
+
+Project documentation is maintained under `docs/`.
+
+Lab 4 documents include:
+
+- `specification.md` — Functional requirements, business rules, acceptance criteria, and Definition of Done.
+- `api-spec.md` — API contracts and authorization requirements.
+- `tests.md` — Test strategy, test paths, acceptance-criterion traceability, and actual verification results.
+- `ui-spec.md` — Zen Green UI, responsive, and accessibility requirements.
+- `reviewer.md` — Peer review and Pull Request records.
+- `ai-use.md` — AI tools, actual usage, and student reflection.
+
+## AI Use
+
+AI tools were used as supporting tools during the project for requirements analysis, code understanding, debugging, test review, and documentation assistance.
+
+The student remains responsible for reviewing suggestions, understanding implementation decisions, checking the assignment requirements, and verifying actual application behavior.
+
+The detailed record and reflection are maintained in:
 
 ```text
-PR #48  - Engineering Contract
-PR #49  - User Model and Database Migration
-PR #50  - Authentication
-PR #51  - Authorization-Security
-PR #52  - Requester-Regression
-PR #54  - IT Staff Ticket Management
-PR #55  - Administrator User Management
-PR #56  - Automated Verification
-PR #57  - Final Verification
+docs/lab-04/ai-use.md
 ```
 
-The final Lab 3 documentation was committed to `main` after verification.
+## Latest Recorded Lab 4 Verification
 
----
+| Verification | Result |
+|---|---:|
+| Backend test files | 20/20 passed |
+| Backend tests | 97/97 passed |
+| Frontend test files | 16/16 passed |
+| Frontend tests | 61/61 passed |
+| Playwright E2E tests | 14/14 passed |
+| Root TypeScript check | Passed |
+| Server production build | Passed |
+| Client production build | Passed |
+| Prisma migrations | 10 applied; schema up to date |
+| Lab 4 screenshots | 33 generated |
 
-# 🤖 AI Use
+The automated test total is **172 tests**: 97 backend, 61 frontend, and 14 E2E.
 
-ChatGPT was used during development as a supporting tool for:
+The latest recorded verification is not a substitute for final verification on the integrated `main` branch. Historical before-and-after database comparison, a complete manual accessibility audit, and production-scale load testing have not been claimed.
 
-* Understanding requirements
-* Reviewing existing code
-* Debugging TypeScript, Prisma, API, and Playwright issues
-* Reviewing authorization behavior
-* Improving automated test coverage
-* Git workflow guidance
-* Documentation review
-* Final verification analysis
+## Project Status
 
-AI suggestions were checked against the existing project architecture, assignment requirements, test results, and Git history before being accepted.
+TokTickIT has progressed through Labs 1–4, covering the initial application foundation, ticket management, authentication and authorization, administration, Actions Taken, Ticket workflow, dashboards, and final regression verification.
 
-The detailed AI use record is available at:
-
-```text
-docs/lab-03/ai-use.md
-```
-
----
-
-# 📊 Final Lab 3 Verification Result
-
-| Verification         |          Result |
-| -------------------- | --------------: |
-| Backend test files   |    15/15 passed |
-| Backend tests        |    57/57 passed |
-| Client test files    |    12/12 passed |
-| Client tests         |    38/38 passed |
-| Playwright E2E tests |      8/8 passed |
-| Server build         |          Passed |
-| Client build         |          Passed |
-| Lab 3 Issues         | #1-#9 completed |
-| Lab 3 PRs            |  #48-#57 merged |
-
-The final verification confirms that the Lab 3 implementation, automated tests, and production builds completed successfully.
-
----
-
-## ✅ Lab 1 Result
-
-When the user clicks **Check System**:
-
-1. The application shows a loading state.
-2. The frontend calls `GET /api/health`.
-3. The frontend calls `GET /api/categories`.
-4. The application displays **System Status: Online** when successful.
-5. The four IT request categories returned by the API are displayed.
-6. A useful error message is displayed if the API or database is unavailable.
-
-## ✅ Lab 2 Result
-
-When the user creates and manages a ticket:
-
-1. The application allows the user to create a new service request.
-2. The user can select a request category and provide the required ticket information.
-3. The application validates required ticket fields before submission.
-4. The created ticket is stored in the database and can be viewed from My Tickets.
-5. The user can open a ticket to view its details.
-6. The application supports ticket comments and attachment handling.
-7. Useful error messages are displayed when a request fails.
-
-## ✅ Lab 3 Result
-
-When the user uses the Lab 3 features:
-
-1. The application supports login, logout, inactive-account protection, and first-login password change.
-2. Role-based authorization controls access for Requesters, IT Staff, and Administrators.
-3. IT Staff can view, search, filter, manage, and open ticket details from the staff queue.
-4. IT Staff can claim or reassign tickets, manage priority and permitted status changes, and use public comments and internal notes.
-5. Administrators can search, filter, create, edit, activate, and deactivate users.
-6. Administrator security rules prevent self-deactivation and removal or deactivation of the last active Administrator.
-7. Non-Administrators cannot access Administrator user management.
-8. The application provides responsive Zen Green UI for the main Lab 3 workflows.
-9. Backend tests, client tests, and Playwright end-to-end tests passed successfully.
-10. Server and client production builds completed successfully.
-
----
-
-
-## 📝 Project Status
-
-TokTickIT has progressed from the initial Lab 1 project foundation to the completed Lab 3 implementation.
-
-The repository now contains the authentication, authorization, requester regression, IT Staff workflows, Administrator user management, automated verification, UI specifications, API specifications, review documentation, and AI-use documentation required for Lab 3.
+The final submission should be based on the verified integrated `main` branch and the official Lab 4 Answer Part 1–9 report requirements.
